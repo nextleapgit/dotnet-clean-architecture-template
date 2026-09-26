@@ -1,0 +1,6 @@
+# Applied automatically by `docker compose up` and by Visual Studio's container tooling.
+services:
+  web-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080

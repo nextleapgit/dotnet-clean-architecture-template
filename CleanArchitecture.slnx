@@ -1,0 +1,23 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/CleanArchitecture.Application/CleanArchitecture.Application.csproj" />
+    <Project Path="src/CleanArchitecture.BuildingBlocks/CleanArchitecture.BuildingBlocks.csproj" />
+    <Project Path="src/CleanArchitecture.Domain/CleanArchitecture.Domain.csproj" />
+    <Project Path="src/CleanArchitecture.Infrastructure/CleanArchitecture.Infrastructure.csproj" />
+    <Project Path="src/CleanArchitecture.SharedKernel/CleanArchitecture.SharedKernel.csproj" />
+    <Project Path="src/CleanArchitecture.Api/CleanArchitecture.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CleanArchitecture.UnitTests/CleanArchitecture.UnitTests.csproj" />
+    <Project Path="tests/CleanArchitecture.ArchitectureTests/CleanArchitecture.ArchitectureTests.csproj" />
+    <Project Path="tests/CleanArchitecture.IntegrationTests/CleanArchitecture.IntegrationTests.csproj" />
+  </Folder>
+  <Project Path="docker-compose.dcproj">
+    <Build />
+  </Project>
+</Solution>

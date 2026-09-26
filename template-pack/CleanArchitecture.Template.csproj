@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Packs the repository as a `dotnet new` template (short name: ca-api). Not part of the solution. -->
+  <PropertyGroup>
+    <PackageType>Template</PackageType>
+    <PackageId>CleanArchitecture.Template</PackageId>
+    <PackageVersion>1.0.0</PackageVersion>
+    <Title>Clean Architecture API template</Title>
+    <Authors>AbdulnaserRamadan</Authors>
+    <Description>Layered, multi-tenant Clean Architecture Web API for .NET 10.</Description>
+    <PackageTags>dotnet-new;templates;clean-architecture</PackageTags>
+
+    <IncludeContentInPack>true</IncludeContentInPack>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <ContentTargetFolders>content</ContentTargetFolders>
+    <NoDefaultExcludes>true</NoDefaultExcludes>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <!-- NU5110/NU5111: the .ps1 files are template content, not NuGet install scripts. -->
+    <NoWarn>$(NoWarn);NU5128;NU5110;NU5111</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\**\*"
+             Exclude="..\.git\**;..\.vs\**;..\.containers\**;..\obj\**;..\**\bin\**;..\**\obj\**;..\**\TestResults\**;..\**\*.user;..\template-pack\**"
+             PackagePath="content\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

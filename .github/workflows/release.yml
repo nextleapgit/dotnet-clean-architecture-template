@@ -1,0 +1,51 @@
+name: Release template
+
+# Push a tag such as v1.2.0 to test, pack, and publish the `dotnet new` template package
+# to GitHub Packages and attach it to a GitHub release.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  DOTNET_VERSION: "10.x"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Test
+        run: dotnet test --solution CleanArchitecture.slnx --configuration Release
+
+      - name: Pack template
+        run: dotnet pack template-pack --configuration Release --output artifacts -p:PackageVersion=${GITHUB_REF_NAME#v}
+
+      - name: Verify template
+        run: |
+          dotnet new install artifacts/CleanArchitecture.Template.*.nupkg
+          dotnet new ca-api --name Release.Check --output ../release-check
+          dotnet build ../release-check/Release.Check.slnx --configuration Release
+
+      - name: Publish to GitHub Packages
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          --api-key "${{ secrets.GITHUB_TOKEN }}"
+          --skip-duplicate
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/*.nupkg --generate-notes

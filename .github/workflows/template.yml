@@ -1,0 +1,41 @@
+name: Template
+
+# Template repository only (not copied into generated projects):
+# checks that a project created from the template builds and passes its tests.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  DOTNET_VERSION: "10.x"
+
+jobs:
+  verify-template:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pack template
+        run: dotnet pack template-pack --configuration Release --output artifacts
+
+      - name: Create a project from the template
+        run: |
+          dotnet new install artifacts/CleanArchitecture.Template.*.nupkg
+          dotnet new ca-api --name Template.Check --output ../template-check
+
+      - name: Build and test the generated project
+        working-directory: ../template-check
+        run: |
+          dotnet build Template.Check.slnx --configuration Release
+          dotnet test --solution Template.Check.slnx --configuration Release --no-build

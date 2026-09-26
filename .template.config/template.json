@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "AbdulnaserRamadan",
+  "classifications": [
+    "Web",
+    "API",
+    "Clean Architecture",
+    "Multi-tenant"
+  ],
+  "identity": "CleanArchitecture.Template.Api",
+  "name": "Clean Architecture API (multi-tenant, .NET 10)",
+  "description": "Layered Clean Architecture Web API: CQRS dispatchers, EF Core stores, tenancy, permissions, audit, transactional email outbox, Scalar, OpenTelemetry, and a full test suite.",
+  "shortName": "ca-api",
+  "sourceName": "CleanArchitecture",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "solution"
+  },
+  "guids": [
+    "7af30323-108a-4923-bd46-e13b7648968c",
+    "34bb3069-d5d0-4046-acad-a2025ed7678f"
+  ],
+  "forms": {
+    "kebab": {
+      "identifier": "kebabCase"
+    }
+  },
+  "symbols": {
+    "kebabName": {
+      "type": "derived",
+      "valueSource": "name",
+      "valueTransform": "kebab",
+      "replaces": "clean-architecture"
+    }
+  },
+  "sources": [
+    {
+      "modifiers": [
+        {
+          "exclude": [
+            ".git/**",
+            ".vs/**",
+            ".containers/**",
+            "obj/**",
+            "**/bin/**",
+            "**/obj/**",
+            "**/TestResults/**",
+            "**/*.user",
+            ".template.config/**",
+            "template-pack/**",
+            "scripts/init-project.ps1",
+            ".github/workflows/release.yml",
+            "TestResults/**",
+            "bin/**",
+            "artifacts/**",
+            ".github/workflows/template.yml"
+          ]
+        }
+      ]
+    }
+  ]
+}

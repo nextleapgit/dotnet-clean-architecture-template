@@ -1,0 +1,73 @@
+# End-to-end walkthrough. Works in Visual Studio, Rider, and VS Code (REST Client).
+# Start the stack first: docker compose up -d --build   (or run the API locally on the same port)
+
+@baseUrl = http://localhost:5000
+@api = {{baseUrl}}/api/v1
+@email = demo@example.com
+@password = Password123
+
+### Health (database readiness only)
+GET {{baseUrl}}/health/ready
+
+### 1. Register — creates a tenant and a user, audits it, and queues a welcome email (see Mailpit: http://localhost:8025)
+# @name register
+POST {{api}}/users/register
+Content-Type: application/json
+
+{ "email": "{{email}}", "firstName": "Demo", "lastName": "User", "password": "{{password}}" }
+
+### 2. Login
+# @name login
+POST {{api}}/users/login
+Content-Type: application/json
+Correlation-Id: demo-login-1
+
+{ "email": "{{email}}", "password": "{{password}}" }
+
+@accessToken = {{login.response.body.accessToken}}
+@refreshToken = {{login.response.body.refreshToken}}
+
+### 3. Current user (tenant-scoped)
+GET {{api}}/users/{{register.response.body.$}}
+Authorization: Bearer {{accessToken}}
+
+### 4. Create a todo
+# @name createTodo
+POST {{api}}/todos
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "description": "Try the template", "labels": ["demo"], "priority": 2 }
+
+### 5. List my todos
+GET {{api}}/todos
+Authorization: Bearer {{accessToken}}
+
+### 6. Complete it
+PUT {{api}}/todos/{{createTodo.response.body.$}}/complete
+Authorization: Bearer {{accessToken}}
+
+### 7. Error shape: unknown todo → 404 with code + correlationId
+GET {{api}}/todos/00000000-0000-0000-0000-000000000001
+Authorization: Bearer {{accessToken}}
+Correlation-Id: demo-not-found
+
+### 8. Rotate the refresh token
+# @name refresh
+POST {{api}}/users/refresh-token
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### 9. Replay the old refresh token → 400, and the whole session family is revoked (Critical audit entry)
+POST {{api}}/users/refresh-token
+Content-Type: application/json
+
+{ "refreshToken": "{{refreshToken}}" }
+
+### 10. Logout (revokes a session you own)
+POST {{api}}/users/logout
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "refreshToken": "{{refresh.response.body.refreshToken}}" }

@@ -113,6 +113,8 @@ namespace CleanArchitecture.Infrastructure.Database.Migrations
                 schema: "public",
                 table: "tenants");
 
+            // Rolling back gives invited users (no password yet) an empty hash, which the password
+            // hasher cannot parse: their sign-in fails with a server error. Delete or re-create them.
             migrationBuilder.AlterColumn<string>(
                 name: "password_hash",
                 schema: "public",

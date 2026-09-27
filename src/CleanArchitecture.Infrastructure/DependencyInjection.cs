@@ -69,8 +69,8 @@ public static class DependencyInjection
     {
         services.AddOptions<ClientAppOptions>()
             .Bind(configuration.GetSection(ClientAppOptions.SectionName))
-            .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<ClientAppOptions>, ClientAppOptionsValidator>();
 
         services.AddSingleton<IClientLinks, ClientLinks>();
 

@@ -185,4 +185,79 @@ public sealed class AccountSecurityTests(IntegrationTestWebAppFactory factory) :
         // Assert
         invited.InvitationPending.ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task ParallelWrongPasswords_Should_StillLockTheAccount()
+    {
+        // Arrange
+        Account member = await CreateAccountAsync();
+
+        // Act: more guesses than allowed, all at once — none may lose its failed-attempt count.
+        HttpResponseMessage[] guesses = await Task.WhenAll(
+            Enumerable.Range(0, 10).Select(_ => LoginResponseAsync(member.Email, "WrongPassword1")));
+
+        HttpResponseMessage withRightPassword = await LoginResponseAsync(member.Email, Password);
+
+        // Assert
+        guesses.ShouldAllBe(r => r.StatusCode == HttpStatusCode.Unauthorized || r.StatusCode == HttpStatusCode.Forbidden);
+        withRightPassword.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
+        (await ProblemCodeAsync(withRightPassword)).ShouldBe("Users.LockedOut");
+    }
+
+    [Fact]
+    public async Task Manager_Should_NotUnlockOrReinvite_AnotherTenantsUser_OrThemselves()
+    {
+        // Arrange
+        Account manager = await CreateAccountAsync(Role.Manager);
+        Account otherTenantsMember = await CreateAccountAsync();
+        Guid otherTenantsInvitee = await InviteUserAsync(UniqueEmail());
+        Authenticate(manager.Tokens.AccessToken);
+
+        // Act
+        HttpResponseMessage unlockOther = await HttpClient.PutAsync($"users/{otherTenantsMember.UserId}/unlock", null, CancellationToken);
+        HttpResponseMessage reinviteOther = await HttpClient.PostAsync($"users/{otherTenantsInvitee}/invitation", null, CancellationToken);
+        HttpResponseMessage unlockSelf = await HttpClient.PutAsync($"users/{manager.UserId}/unlock", null, CancellationToken);
+        HttpResponseMessage reinviteSelf = await HttpClient.PostAsync($"users/{manager.UserId}/invitation", null, CancellationToken);
+
+        // Assert: another tenant's users do not exist for the manager.
+        unlockOther.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        reinviteOther.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await ProblemCodeAsync(unlockSelf)).ShouldBe("Users.CannotChangeOwnAccess");
+        (await ProblemCodeAsync(reinviteSelf)).ShouldBe("Users.CannotChangeOwnAccess");
+    }
+
+    [Fact]
+    public async Task InvitationLink_Should_WorkOnlyOnce_WhenUsedTwiceAtTheSameMoment()
+    {
+        // Arrange
+        string email = UniqueEmail();
+        await InviteUserAsync(email);
+        string token = await ReadEmailedTokenAsync(email, InvitationSubject);
+
+        // Act
+        HttpResponseMessage[] responses = await Task.WhenAll(AcceptAsync(token, Password), AcceptAsync(token, NewPassword));
+
+        // Assert: one wins; the other is rejected as a used link (400) or a lost race (409).
+        responses.Count(r => r.StatusCode == HttpStatusCode.NoContent).ShouldBe(1);
+        responses.ShouldContain(r => r.StatusCode == HttpStatusCode.BadRequest || r.StatusCode == HttpStatusCode.Conflict);
+
+        string winner = responses[0].StatusCode == HttpStatusCode.NoContent ? Password : NewPassword;
+        (await LoginResponseAsync(email, winner)).StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task ForgotPassword_Should_TakeAtLeastTheMinimumTime_ForAnUnknownEmail()
+    {
+        // Act
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
+            "users/password/forgot",
+            new { email = UniqueEmail() },
+            CancellationToken);
+        stopwatch.Stop();
+
+        // Assert: the unknown email answers no faster than a real one would.
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        stopwatch.Elapsed.ShouldBeGreaterThanOrEqualTo(TimeSpan.FromMilliseconds(950));
+    }
 }

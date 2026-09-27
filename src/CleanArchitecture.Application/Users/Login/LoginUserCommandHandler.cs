@@ -33,6 +33,24 @@ internal sealed class LoginUserCommandHandler(
             return await FailAsync(user, user is null ? "unknown_user" : "invitation_pending", UserErrors.InvalidCredentials, cancellationToken);
         }
 
+        // Concurrent attempts on one account run one after another, so each failure is counted and
+        // parallel guesses cannot slip past the lockout.
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        await userStore.LockForUpdateAsync(user, cancellationToken);
+
+        Result<AccessTokensResponse> result = await SignInAsync(user, command.Password, cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return result;
+    }
+
+    private async Task<Result<AccessTokensResponse>> SignInAsync(
+        User user,
+        string password,
+        CancellationToken cancellationToken)
+    {
         DateTime utcNow = dateTimeProvider.UtcNow;
 
         // While locked, the password is not even checked, so guessing gains nothing.
@@ -41,7 +59,7 @@ internal sealed class LoginUserCommandHandler(
             return await FailAsync(user, "locked_out", UserErrors.LockedOut, cancellationToken);
         }
 
-        if (!passwordHasher.Verify(command.Password, user.PasswordHash))
+        if (user.PasswordHash is null || !passwordHasher.Verify(password, user.PasswordHash))
         {
             if (user.RecordFailedLogin(utcNow, LockoutPolicy.MaxFailedAttempts, LockoutPolicy.Duration))
             {

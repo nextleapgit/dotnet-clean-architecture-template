@@ -53,7 +53,7 @@ Delete these, then regenerate the initial migration and keep its hand-written au
 
 ## Releasing the template
 
-Push a tag such as `v1.1.0`. The `Release template` workflow tests the repository, packs the template with that version, verifies that a generated project builds, publishes the package to GitHub Packages, and attaches it to a GitHub release.
+Push a tag such as `v2.1.0`. The `Release template` workflow tests the repository, packs the template with that version, verifies that a generated project builds, publishes the package to GitHub Packages, and attaches it to a GitHub release.
 
 To install from GitHub Packages, add the feed once (a personal access token with `read:packages`):
 

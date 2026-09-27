@@ -14,7 +14,15 @@ public interface IUserStore
     /// </summary>
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 
+    /// <summary>A tracked user of the tenant, for use cases that change it.</summary>
+    Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
+
     Task<bool> ExistsAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
+
+    Task<bool> IsActiveAdminAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Tenant-agnostic by design: used only by the start-up bootstrap.</summary>
+    Task<bool> AdminExistsAsync(CancellationToken cancellationToken);
 
     Task<UserResponse?> GetResponseAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
 

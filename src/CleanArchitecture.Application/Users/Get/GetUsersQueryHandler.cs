@@ -1,19 +1,24 @@
 using CleanArchitecture.Application.Abstractions.Paging;
+using CleanArchitecture.Application.Tenants;
 using CleanArchitecture.BuildingBlocks.Cqrs;
-using CleanArchitecture.BuildingBlocks.Tenancy;
 using CleanArchitecture.SharedKernel;
 
 namespace CleanArchitecture.Application.Users.Get;
 
-internal sealed class GetUsersQueryHandler(IUserStore userStore, ICurrentTenantContext tenantContext)
+internal sealed class GetUsersQueryHandler(IUserStore userStore, TenantAccess tenantAccess)
     : IQueryHandler<GetUsersQuery, PagedResponse<UserResponse>>
 {
     public async Task<Result<PagedResponse<UserResponse>>> HandleAsync(
         GetUsersQuery query,
-        CancellationToken cancellationToken) =>
-        await userStore.ListResponsesAsync(
-            tenantContext.CurrentTenantId,
-            query.Page,
-            query.PageSize,
-            cancellationToken);
+        CancellationToken cancellationToken)
+    {
+        Result<TenantId> tenant = await tenantAccess.ResolveAsync(query.TenantId, cancellationToken);
+
+        if (tenant.IsFailure)
+        {
+            return Result.Failure<PagedResponse<UserResponse>>(tenant.Error);
+        }
+
+        return await userStore.ListResponsesAsync(tenant.Value, query.Page, query.PageSize, cancellationToken);
+    }
 }

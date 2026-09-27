@@ -3,7 +3,7 @@ using CleanArchitecture.BuildingBlocks.Email;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
 
-namespace CleanArchitecture.Application.Users.Register;
+namespace CleanArchitecture.Application.Users.Create;
 
 internal static class WelcomeEmail
 {

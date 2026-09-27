@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    Exercises a running stack end to end: health, registration, login, tenant-scoped reads,
-    todos, error shape, token rotation and reuse detection, logout, and the welcome email.
+    Exercises a running stack end to end: health, admin sign-in, tenant and user creation,
+    login, user management, todos, error shape, token rotation and reuse detection, logout,
+    deactivation, and the welcome email. Uses the admin from Bootstrap:Admin (Development defaults).
 
 .EXAMPLE
     docker compose up -d --build
@@ -13,6 +14,8 @@
 param(
     [string] $BaseUrl = "http://localhost:5000",
     [string] $MailpitUrl = "http://localhost:8025",
+    [string] $AdminEmail = "admin@cleanarchitecture.local",
+    [string] $AdminPassword = "Admin123!",
     [int] $StartupTimeoutSeconds = 90
 )
 
@@ -73,14 +76,27 @@ Write-Host "Running smoke test as $email"
 
 $state = @{}
 
-Step "register creates a user" {
-    $r = Invoke-Api POST "$api/users/register" @{ email = $email; firstName = "Smoke"; lastName = "Test"; password = $password }
+Step "admin signs in and creates a tenant" {
+    $r = Invoke-Api POST "$api/users/login" @{ email = $AdminEmail; password = $AdminPassword }
+    Assert-Status $r 200
+    $state.Admin = ($r.Body | ConvertFrom-Json).accessToken
+    $r = Invoke-Api POST "$api/tenants" @{ name = "Smoke $([guid]::NewGuid().ToString('N'))" } -token $state.Admin
+    Assert-Status $r 200
+    $state.TenantId = ($r.Body | ConvertFrom-Json)
+}
+
+Step "admin creates the tenant's manager" {
+    $r = Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email; firstName = "Smoke"; lastName = "Test"; password = $password; role = 1 } -token $state.Admin
     Assert-Status $r 200
     $state.UserId = ($r.Body | ConvertFrom-Json)
 }
 
 Step "duplicate email (different case) is rejected with 409" {
-    Assert-Status (Invoke-Api POST "$api/users/register" @{ email = $email.ToUpperInvariant(); firstName = "A"; lastName = "B"; password = $password }) 409
+    Assert-Status (Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email.ToUpperInvariant(); firstName = "A"; lastName = "B"; password = $password; role = 0 } -token $state.Admin) 409
+}
+
+Step "self sign-up does not exist" {
+    Assert-Status (Invoke-Api POST "$api/users/register" @{ email = "x-$email"; firstName = "A"; lastName = "B"; password = $password }) 405
 }
 
 Step "wrong password is rejected with 401" {
@@ -103,6 +119,25 @@ Step "current user is readable within its tenant" {
     $r = Invoke-Api GET "$api/users/$($state.UserId)" -token $state.Access
     Assert-Status $r 200
     if (($r.Body | ConvertFrom-Json).tenantId -eq [guid]::Empty) { throw "missing tenant id" }
+}
+
+Step "manager creates a member, lists the tenant's users, and deactivates the member" {
+    $memberEmail = "member-$email"
+    $r = Invoke-Api POST "$api/users" @{ email = $memberEmail; firstName = "Smoke"; lastName = "Member"; password = $password; role = 0 } -token $state.Access
+    Assert-Status $r 200
+    $memberId = $r.Body | ConvertFrom-Json
+    $list = Invoke-Api GET "$api/users" -token $state.Access
+    Assert-Status $list 200
+    if (($list.Body | ConvertFrom-Json).totalCount -ne 2) { throw "expected two users in the tenant" }
+    $member = (Invoke-Api POST "$api/users/login" @{ email = $memberEmail; password = $password }).Body | ConvertFrom-Json
+    Assert-Status (Invoke-Api GET "$api/users" -token $member.accessToken) 403
+    Assert-Status (Invoke-Api PUT "$api/users/$memberId/deactivate" -token $state.Access) 204
+    Assert-Status (Invoke-Api GET "$api/users/me" -token $member.accessToken) 403
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $memberEmail; password = $password }) 403
+}
+
+Step "manager cannot administer tenants" {
+    Assert-Status (Invoke-Api GET "$api/tenants" -token $state.Access) 403
 }
 
 Step "create, list, and complete a todo" {

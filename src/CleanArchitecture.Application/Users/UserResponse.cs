@@ -1,3 +1,5 @@
+using CleanArchitecture.Domain.Users;
+
 namespace CleanArchitecture.Application.Users;
 
 public sealed record UserResponse
@@ -11,4 +13,8 @@ public sealed record UserResponse
     public string FirstName { get; init; }
 
     public string LastName { get; init; }
+
+    public Role Role { get; init; }
+
+    public bool IsActive { get; init; }
 }

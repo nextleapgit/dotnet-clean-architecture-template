@@ -14,17 +14,45 @@ public sealed class Tenant : Entity
     public string Name { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
+    /// <summary>Users of an inactive tenant can neither sign in nor use the API.</summary>
+    public bool IsActive { get; private set; }
+
     public static Tenant Create(string name, DateTime createdAtUtc)
     {
         var tenant = new Tenant
         {
             Id = TenantId.New(),
             Name = name,
-            CreatedAtUtc = createdAtUtc
+            CreatedAtUtc = createdAtUtc,
+            IsActive = true
         };
 
         tenant.Raise(new TenantCreatedDomainEvent(tenant.Id));
 
         return tenant;
+    }
+
+    public void Deactivate()
+    {
+        if (!IsActive)
+        {
+            return;
+        }
+
+        IsActive = false;
+
+        Raise(new TenantDeactivatedDomainEvent(Id));
+    }
+
+    public void Activate()
+    {
+        if (IsActive)
+        {
+            return;
+        }
+
+        IsActive = true;
+
+        Raise(new TenantActivatedDomainEvent(Id));
     }
 }

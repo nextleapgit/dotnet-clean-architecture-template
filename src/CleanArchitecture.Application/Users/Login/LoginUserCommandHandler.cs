@@ -1,4 +1,5 @@
 using CleanArchitecture.Application.Abstractions.Authentication;
+using CleanArchitecture.Application.Tenants;
 using CleanArchitecture.BuildingBlocks.Auditing;
 using CleanArchitecture.BuildingBlocks.Cqrs;
 using CleanArchitecture.BuildingBlocks.Persistence;
@@ -10,6 +11,7 @@ namespace CleanArchitecture.Application.Users.Login;
 internal sealed class LoginUserCommandHandler(
     IUnitOfWork unitOfWork,
     IUserStore userStore,
+    ITenantStore tenantStore,
     IRefreshTokenStore refreshTokenStore,
     IPasswordHasher passwordHasher,
     ITokenProvider tokenProvider,
@@ -28,12 +30,17 @@ internal sealed class LoginUserCommandHandler(
             // does not reveal which emails are registered.
             passwordHasher.Hash(command.Password);
 
-            return await FailAsync(null, "unknown_user", cancellationToken);
+            return await FailAsync(null, "unknown_user", UserErrors.InvalidCredentials, cancellationToken);
         }
 
         if (!passwordHasher.Verify(command.Password, user.PasswordHash))
         {
-            return await FailAsync(user, "invalid_password", cancellationToken);
+            return await FailAsync(user, "invalid_password", UserErrors.InvalidCredentials, cancellationToken);
+        }
+
+        if (!user.IsActive || !await tenantStore.IsActiveAsync(user.TenantId, cancellationToken))
+        {
+            return await FailAsync(user, "account_disabled", UserErrors.AccountDisabled, cancellationToken);
         }
 
         string refreshToken = tokenProvider.GenerateRefreshToken();
@@ -58,6 +65,7 @@ internal sealed class LoginUserCommandHandler(
     private async Task<Result<AccessTokensResponse>> FailAsync(
         User? user,
         string reason,
+        Error error,
         CancellationToken cancellationToken)
     {
         auditLog.Record(new AuditRecord(
@@ -73,6 +81,6 @@ internal sealed class LoginUserCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return Result.Failure<AccessTokensResponse>(UserErrors.InvalidCredentials);
+        return Result.Failure<AccessTokensResponse>(error);
     }
 }

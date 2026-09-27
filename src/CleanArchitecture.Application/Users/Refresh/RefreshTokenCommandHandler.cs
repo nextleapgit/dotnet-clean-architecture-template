@@ -1,4 +1,5 @@
 using CleanArchitecture.Application.Abstractions.Authentication;
+using CleanArchitecture.Application.Tenants;
 using CleanArchitecture.BuildingBlocks.Auditing;
 using CleanArchitecture.BuildingBlocks.Cqrs;
 using CleanArchitecture.BuildingBlocks.Persistence;
@@ -10,6 +11,7 @@ namespace CleanArchitecture.Application.Users.Refresh;
 internal sealed class RefreshTokenCommandHandler(
     IUnitOfWork unitOfWork,
     IRefreshTokenStore refreshTokenStore,
+    ITenantStore tenantStore,
     ITokenProvider tokenProvider,
     IDateTimeProvider dateTimeProvider,
     IAuditLog auditLog) : ICommandHandler<RefreshTokenCommand, AccessTokensResponse>
@@ -39,6 +41,13 @@ internal sealed class RefreshTokenCommandHandler(
         if (!refreshToken.IsActive(utcNow))
         {
             return Result.Failure<AccessTokensResponse>(UserErrors.InvalidRefreshToken);
+        }
+
+        // Deactivation revokes a user's sessions, but a tenant's deactivation does not: check both.
+        if (!refreshToken.User.IsActive
+            || !await tenantStore.IsActiveAsync(refreshToken.User.TenantId, cancellationToken))
+        {
+            return Result.Failure<AccessTokensResponse>(UserErrors.AccountDisabled);
         }
 
         string newRefreshToken = tokenProvider.GenerateRefreshToken();

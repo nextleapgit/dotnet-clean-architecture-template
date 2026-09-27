@@ -58,8 +58,9 @@ The template follows the `dotnet-*` skills except where noted here; each deviati
 | Topic | Skill says | Template does | Why |
 |---|---|---|---|
 | System shape | Modular monolith, four projects per module | One set of layers (improved layered architecture) | Chosen as the default for new projects; split into modules when a product needs it |
-| Tenant hierarchy | Owner → MainProvider → SubProvider → Customer | One flat tenant per sign-up; `AccessibleTenantIds` is the extension point for a hierarchy | The hierarchy is specific to the tracking platform |
-| Permissions | Role/permission model with delegation rules | Default permission set for every authenticated user (`PermissionProvider`) | No role model is assumed; replace `PermissionProvider` when one exists |
+| Tenant hierarchy | Owner → MainProvider → SubProvider → Customer | Flat tenants created by a platform admin; `AccessibleTenantIds` is the extension point for a hierarchy | The hierarchy is specific to the tracking platform |
+| Permissions | Role/permission model with delegation rules | Three fixed roles (`Member` ⊂ `Manager` ⊂ `Admin`) mapped to permissions in `RolePermissions`; the role is read from the database per request | A general-purpose starting point; replace `RolePermissions` with a persisted role/permission model when a product needs custom roles |
+| Tenant from the request | Tenant always comes from the tenant context | Admin routes name the target tenant in the URL (`tenants/{tenantId}/users/...`); `TenantAccess` allows it only for an active admin and returns `NotFound` otherwise | Platform administration is cross-tenant by nature; the check lives in the use case so a mis-mapped endpoint stays safe |
 | Handler registration | Explicit `AddScoped` per handler | Assembly scanning in `AddCqrs` (still scoped) | Fewer merge conflicts, decorators applied uniformly |
 | Persistence tests | SQLite | PostgreSQL via Testcontainers | The outbox relies on `FOR UPDATE SKIP LOCKED`, partial indexes, and triggers that SQLite does not have |
 | Error body | `{ code, message, correlationId }` | RFC 9457 problem details with `code`, `detail` (the message), and `correlationId` | Standard format that still carries the required fields |

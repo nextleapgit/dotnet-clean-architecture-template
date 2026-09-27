@@ -12,7 +12,7 @@ public sealed class SessionTests(IntegrationTestWebAppFactory factory) : BaseInt
     public async Task Refresh_Should_RotateTokens()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
 
         // Act
         HttpResponseMessage response = await RefreshAsync(account.Tokens.RefreshToken);
@@ -32,7 +32,7 @@ public sealed class SessionTests(IntegrationTestWebAppFactory factory) : BaseInt
     public async Task Refresh_Should_RevokeWholeFamily_WhenRotatedTokenIsReused()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         HttpResponseMessage firstRotation = await RefreshAsync(account.Tokens.RefreshToken);
         AccessTokens rotated = (await firstRotation.Content.ReadFromJsonAsync<AccessTokens>(CancellationToken))!;
 
@@ -48,7 +48,7 @@ public sealed class SessionTests(IntegrationTestWebAppFactory factory) : BaseInt
     public async Task Refresh_Should_SucceedOnlyOnce_WhenTheSameTokenIsUsedConcurrently()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
 
         // Act
         HttpResponseMessage[] responses = await Task.WhenAll(
@@ -66,7 +66,7 @@ public sealed class SessionTests(IntegrationTestWebAppFactory factory) : BaseInt
     public async Task Logout_Should_RevokeTheSession()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
 
         // Act
@@ -84,8 +84,8 @@ public sealed class SessionTests(IntegrationTestWebAppFactory factory) : BaseInt
     public async Task Logout_Should_NotRevokeAnotherUsersSession()
     {
         // Arrange
-        Account victim = await RegisterAndLoginAsync();
-        Account attacker = await RegisterAndLoginAsync();
+        Account victim = await CreateAccountAsync();
+        Account attacker = await CreateAccountAsync();
         Authenticate(attacker.Tokens.AccessToken);
 
         // Act

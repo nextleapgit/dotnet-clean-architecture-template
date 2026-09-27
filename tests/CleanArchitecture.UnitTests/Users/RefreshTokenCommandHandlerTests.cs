@@ -1,6 +1,7 @@
 using CleanArchitecture.Application.Users;
 using CleanArchitecture.Application.Users.Refresh;
 using CleanArchitecture.BuildingBlocks.Auditing;
+using CleanArchitecture.Domain.Tenants;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
 using CleanArchitecture.UnitTests.Fakes;
@@ -13,13 +14,21 @@ public sealed class RefreshTokenCommandHandlerTests
 
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly InMemoryRefreshTokenStore _store = new();
+    private readonly InMemoryTenantStore _tenantStore = new();
     private readonly RecordingAuditLog _auditLog = new();
     private readonly FakeTokenProvider _tokenProvider = new();
-    private readonly User _user = TestData.NewUser();
+    private readonly Tenant _tenant = TestData.NewTenant();
+    private readonly User _user;
 
-    public RefreshTokenCommandHandlerTests() => _store.KnowUser(_user);
+    public RefreshTokenCommandHandlerTests()
+    {
+        _tenantStore.Add(_tenant);
+        _user = TestData.NewUser(_tenant.Id);
+        _store.KnowUser(_user);
+    }
 
-    private RefreshTokenCommandHandler Handler => new(_unitOfWork, _store, _tokenProvider, TestData.Clock(), _auditLog);
+    private RefreshTokenCommandHandler Handler =>
+        new(_unitOfWork, _store, _tenantStore, _tokenProvider, TestData.Clock(), _auditLog);
 
     private RefreshToken IssueStoredToken(string rawToken, DateTime createdAtUtc)
     {
@@ -121,5 +130,32 @@ public sealed class RefreshTokenCommandHandlerTests
         AuditRecord audit = _auditLog.Records.ShouldHaveSingleItem();
         audit.Action.ShouldBe(UserAuditActions.RefreshTokenReuseDetected);
         audit.Severity.ShouldBe(AuditSeverity.Critical);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Handle_Should_ReturnAccountDisabledWithoutRotating_WhenUserOrTenantIsDeactivated(bool deactivateTenant)
+    {
+        // Arrange
+        RefreshToken token = IssueStoredToken("current", TestData.UtcNow);
+        if (deactivateTenant)
+        {
+            _tenant.Deactivate();
+        }
+        else
+        {
+            _user.Deactivate();
+        }
+
+        // Act
+        Result<AccessTokensResponse> result = await Handler.HandleAsync(
+            new RefreshTokenCommand("current"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Error.ShouldBe(UserErrors.AccountDisabled);
+        token.WasRotated.ShouldBeFalse();
+        _store.Tokens.ShouldHaveSingleItem();
     }
 }

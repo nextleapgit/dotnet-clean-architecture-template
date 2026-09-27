@@ -15,8 +15,17 @@ public sealed class InMemoryUserStore : IUserStore
     public Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         Task.FromResult(Users.SingleOrDefault(u => u.Email == normalizedEmail));
 
+    public Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult(Users.SingleOrDefault(u => u.TenantId == tenantId && u.Id == userId));
+
     public Task<bool> ExistsAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         Task.FromResult(Users.Exists(u => u.TenantId == tenantId && u.Id == userId));
+
+    public Task<bool> IsActiveAdminAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult(Users.Exists(u => u.TenantId == tenantId && u.Id == userId && u.Role == Role.Admin && u.IsActive));
+
+    public Task<bool> AdminExistsAsync(CancellationToken cancellationToken) =>
+        Task.FromResult(Users.Exists(u => u.Role == Role.Admin));
 
     public Task<UserResponse?> GetResponseAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         Task.FromResult(Users
@@ -54,6 +63,8 @@ public sealed class InMemoryUserStore : IUserStore
         TenantId = u.TenantId.Value,
         Email = u.Email,
         FirstName = u.FirstName,
-        LastName = u.LastName
+        LastName = u.LastName,
+        Role = u.Role,
+        IsActive = u.IsActive
     };
 }

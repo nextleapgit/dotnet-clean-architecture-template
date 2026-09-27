@@ -34,5 +34,12 @@ public sealed class InMemoryRefreshTokenStore : IRefreshTokenStore
         Task.FromResult<IReadOnlyList<RefreshToken>>(
             Tokens.Where(t => t.FamilyId == familyId && t.IsActive(utcNow)).ToList());
 
+    public Task<IReadOnlyList<RefreshToken>> GetActiveForUserAsync(
+        Guid userId,
+        DateTime utcNow,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<RefreshToken>>(
+            Tokens.Where(t => t.UserId == userId && t.IsActive(utcNow)).ToList());
+
     public void Add(RefreshToken refreshToken) => Tokens.Add(refreshToken);
 }

@@ -1,25 +1,28 @@
 using System.Net;
 using System.Net.Http.Json;
+using CleanArchitecture.Domain.Users;
 
 namespace CleanArchitecture.IntegrationTests.Users;
 
 public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseIntegrationTest(factory)
 {
-    private sealed record UserDto(Guid Id, Guid TenantId, string Email, string FirstName, string LastName);
+    private sealed record UserDto(Guid Id, Guid TenantId, string Email, string FirstName, string LastName, Role Role, bool IsActive);
 
     private sealed record UserPageDto(List<UserDto> Items, int Page, int PageSize, int TotalCount);
 
     [Fact]
-    public async Task Register_Should_ReturnConflict_WhenEmailDiffersOnlyByCase()
+    public async Task CreateUser_Should_ReturnConflict_WhenEmailDiffersOnlyByCase()
     {
         // Arrange
         string email = UniqueEmail();
-        await RegisterUserAsync(email);
+        await CreateUserAsync(email);
+        Account manager = await CreateAccountAsync(Role.Manager);
+        Authenticate(manager.Tokens.AccessToken);
 
         // Act
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
-            "users/register",
-            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", password = Password },
+            "users",
+            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", password = Password, role = Role.Member },
             CancellationToken);
 
         // Assert
@@ -35,7 +38,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         string email = UniqueEmail();
         if (userExists)
         {
-            await RegisterUserAsync(email);
+            await CreateUserAsync(email);
         }
 
         // Act
@@ -49,6 +52,14 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     }
 
     [Fact]
+    public async Task Register_Should_NoLongerExist() =>
+        (await HttpClient.PostAsJsonAsync(
+            "users/register",
+            new { email = UniqueEmail(), firstName = "Test", lastName = "User", password = Password },
+            CancellationToken))
+        .StatusCode.ShouldBe(HttpStatusCode.MethodNotAllowed);
+
+    [Fact]
     public async Task GetUser_Should_ReturnUnauthorized_WhenTokenIsMissing() =>
         (await HttpClient.GetAsync($"users/{Guid.NewGuid()}", CancellationToken))
             .StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -57,7 +68,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task GetMe_Should_ReturnProfileOfSignedInUser()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
 
         // Act
@@ -65,16 +76,19 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
 
         // Assert
         me!.Id.ShouldBe(account.UserId);
+        me.TenantId.ShouldBe(account.TenantId);
         me.Email.ShouldBe(account.Email);
-        me.FirstName.ShouldBe("Test");
+        me.Role.ShouldBe(Role.Member);
+        me.IsActive.ShouldBeTrue();
     }
 
     [Fact]
-    public async Task GetUsers_Should_ReturnPagedUsersOfCurrentTenant()
+    public async Task GetUsers_Should_ReturnPagedUsersOfCurrentTenant_WhenCallerIsManager()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
-        Authenticate(account.Tokens.AccessToken);
+        Account manager = await CreateAccountAsync(Role.Manager);
+        Guid memberId = await CreateUserAsync(UniqueEmail(), Role.Member, manager.TenantId);
+        Authenticate(manager.Tokens.AccessToken);
 
         // Act
         UserPageDto? page = await HttpClient.GetFromJsonAsync<UserPageDto>("users?page=1&pageSize=10", CancellationToken);
@@ -82,8 +96,8 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Assert
         page!.Page.ShouldBe(1);
         page.PageSize.ShouldBe(10);
-        page.TotalCount.ShouldBe(1);
-        page.Items.ShouldHaveSingleItem().Id.ShouldBe(account.UserId);
+        page.TotalCount.ShouldBe(2);
+        page.Items.Select(u => u.Id).ShouldBe([manager.UserId, memberId], ignoreOrder: true);
     }
 
     [Theory]
@@ -92,8 +106,8 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task GetUsers_Should_ReturnBadRequest_WhenPagingIsOutOfRange(string route)
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
-        Authenticate(account.Tokens.AccessToken);
+        Account manager = await CreateAccountAsync(Role.Manager);
+        Authenticate(manager.Tokens.AccessToken);
 
         // Act
         HttpResponseMessage response = await HttpClient.GetAsync(route, CancellationToken);

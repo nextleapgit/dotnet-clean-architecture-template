@@ -47,7 +47,7 @@ public sealed class SecurityPrimitivesTests
     [Fact]
     public void AccessToken_Should_CarryUserTenantAndExpiryFromTheClock()
     {
-        var user = User.Create(TenantId.New(), "user@example.com", "Test", "User", "hash");
+        var user = User.Create(TenantId.New(), "user@example.com", "Test", "User", "hash", Role.Member);
 
         string token = CreateTokenProvider().CreateAccessToken(user);
         JsonWebToken jwt = new JsonWebTokenHandler().ReadJsonWebToken(token);

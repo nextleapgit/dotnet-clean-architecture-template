@@ -49,6 +49,9 @@ if (app.Environment.IsDevelopment())
     await app.Services.ApplyMigrationsAsync(app.Lifetime.ApplicationStopping);
 }
 
+// Creates the first admin from the Bootstrap:Admin section, if configured and no admin exists.
+await app.BootstrapAdminAsync(app.Lifetime.ApplicationStopping);
+
 app.MapHealthChecks("health", new HealthCheckOptions
 {
     ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse

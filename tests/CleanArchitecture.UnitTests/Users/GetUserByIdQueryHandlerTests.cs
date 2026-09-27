@@ -2,26 +2,27 @@ using CleanArchitecture.Application.Users;
 using CleanArchitecture.Application.Users.GetById;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
-using CleanArchitecture.UnitTests.Fakes;
 
 namespace CleanArchitecture.UnitTests.Users;
 
 public sealed class GetUserByIdQueryHandlerTests
 {
-    private readonly InMemoryUserStore _store = new();
+    private readonly UserAdministrationFixture _fixture = new();
+
+    private static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
+
+    private GetUserByIdQueryHandler HandlerFor(User actor) => new(_fixture.Users, _fixture.TenantAccessFor(actor));
 
     [Fact]
     public async Task Handle_Should_ReturnNotFound_WhenUserBelongsToAnotherTenant()
     {
         // Arrange
-        User foreign = TestData.NewUser();
-        _store.Add(foreign);
-        var handler = new GetUserByIdQueryHandler(_store, new FakeTenantContext(TenantId.New(), Guid.NewGuid()));
+        User foreign = _fixture.AddUser(_fixture.OtherTenant);
 
         // Act
-        Result<UserResponse> result = await handler.HandleAsync(
+        Result<UserResponse> result = await HandlerFor(_fixture.Manager).HandleAsync(
             new GetUserByIdQuery(foreign.Id),
-            TestContext.Current.CancellationToken);
+            CancellationToken);
 
         // Assert
         result.Error.ShouldBe(UserErrors.NotFound(foreign.Id));
@@ -31,17 +32,32 @@ public sealed class GetUserByIdQueryHandlerTests
     public async Task Handle_Should_ReturnUser_WhenInSameTenant()
     {
         // Arrange
-        User user = TestData.NewUser();
-        _store.Add(user);
-        var handler = new GetUserByIdQueryHandler(_store, new FakeTenantContext(user.TenantId, Guid.NewGuid()));
+        User user = _fixture.AddUser(_fixture.Tenant);
 
         // Act
-        Result<UserResponse> result = await handler.HandleAsync(
+        Result<UserResponse> result = await HandlerFor(_fixture.Manager).HandleAsync(
             new GetUserByIdQuery(user.Id),
-            TestContext.Current.CancellationToken);
+            CancellationToken);
 
         // Assert
         result.Value.Id.ShouldBe(user.Id);
         result.Value.TenantId.ShouldBe(user.TenantId.Value);
+        result.Value.Role.ShouldBe(Role.Member);
+        result.Value.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnUserOfAnotherTenant_WhenCallerIsAdmin()
+    {
+        // Arrange
+        User foreign = _fixture.AddUser(_fixture.OtherTenant);
+
+        // Act
+        Result<UserResponse> result = await HandlerFor(_fixture.Admin).HandleAsync(
+            new GetUserByIdQuery(foreign.Id, _fixture.OtherTenant.Id.Value),
+            CancellationToken);
+
+        // Assert
+        result.Value.Id.ShouldBe(foreign.Id);
     }
 }

@@ -56,18 +56,18 @@ One failing test per rule plus one valid command, with `FluentValidation.TestHel
 
 ## Integration tests — `tests/CleanArchitecture.IntegrationTests/{Feature}/`
 
-Inherit `BaseIntegrationTest(factory)`: real API + PostgreSQL (Testcontainers). `HttpClient` resolves relative URLs under `/api/v1/`. Helpers: `RegisterAndLoginAsync()` (a new user **and tenant**), `Authenticate(token)`, `CreateClient()` for a second caller, `WithDbContextAsync(...)` to assert persisted rows (e.g. audit entries).
+Inherit `BaseIntegrationTest(factory)`: real API + PostgreSQL (Testcontainers). `HttpClient` resolves relative URLs under `/api/v1/`. Helpers: `CreateAccountAsync(role, tenantId?)` (a new user — in a new **tenant** unless one is given — created by the bootstrapped admin, then signed in), `CreateTenantAsync()`, `CreateUserAsync(email, role, tenantId?)`, `CreateAdminClientAsync()`, `Authenticate(token)`, `CreateClient()` for a second caller, `WithDbContextAsync(...)` to assert persisted rows (e.g. audit entries).
 
 ```csharp
 [Fact]
 public async Task ArchiveTodo_Should_ReturnNotFound_ForAnotherTenant()
 {
     // Arrange
-    Account owner = await RegisterAndLoginAsync();
+    Account owner = await CreateAccountAsync();
     Authenticate(owner.Tokens.AccessToken);
     Guid todoId = await TodoApi.CreateAsync(HttpClient, "Private", CancellationToken);
 
-    Account intruder = await RegisterAndLoginAsync();
+    Account intruder = await CreateAccountAsync();
     HttpClient intruderClient = CreateClient();
     Authenticate(intruderClient, intruder.Tokens.AccessToken);
 

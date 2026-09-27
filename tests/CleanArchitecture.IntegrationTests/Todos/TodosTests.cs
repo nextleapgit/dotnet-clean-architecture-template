@@ -21,7 +21,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task CreateTodo_Should_PersistTodoForCurrentUser_ThatCanBeRetrievedById()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
 
         // Act
@@ -39,7 +39,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task CreateTodo_Should_ReturnValidationProblem_WhenRequestIsInvalid()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
 
         // Act
@@ -59,7 +59,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task CompleteCopyAndDelete_Should_WorkForOwnTodo()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
         Guid todoId = await TodoApi.CreateAsync(HttpClient, "Lifecycle", CancellationToken);
 
@@ -82,7 +82,7 @@ public sealed class TodosTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task UpdateTodo_Should_InvalidateCachedTodo()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
         Guid todoId = await TodoApi.CreateAsync(HttpClient, "Before", CancellationToken);
         await TodoApi.GetAsync(HttpClient, todoId, CancellationToken); // warm the cache

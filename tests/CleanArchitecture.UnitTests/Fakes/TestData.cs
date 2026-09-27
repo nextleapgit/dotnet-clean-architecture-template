@@ -1,3 +1,4 @@
+using CleanArchitecture.Domain.Tenants;
 using CleanArchitecture.Domain.Todos;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
@@ -16,9 +17,17 @@ public static class TestData
         return dateTimeProvider;
     }
 
-    public static User NewUser(TenantId? tenantId = null, string email = "test@example.com")
+    public static Tenant NewTenant(string name = "Acme")
     {
-        var user = User.Create(tenantId ?? TenantId.New(), email, "Test", "User", "hash");
+        var tenant = Tenant.Create(name, UtcNow);
+        tenant.ClearDomainEvents();
+
+        return tenant;
+    }
+
+    public static User NewUser(TenantId? tenantId = null, string email = "test@example.com", Role role = Role.Member)
+    {
+        var user = User.Create(tenantId ?? TenantId.New(), email, "Test", "User", "hash", role);
         user.ClearDomainEvents();
 
         return user;

@@ -2,6 +2,7 @@ using CleanArchitecture.Application.Abstractions.Authentication;
 using CleanArchitecture.Application.Users;
 using CleanArchitecture.Application.Users.Login;
 using CleanArchitecture.BuildingBlocks.Auditing;
+using CleanArchitecture.Domain.Tenants;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
 using CleanArchitecture.UnitTests.Fakes;
@@ -14,13 +15,17 @@ public sealed class LoginUserCommandHandlerTests
 
     private readonly FakeUnitOfWork _unitOfWork = new();
     private readonly InMemoryUserStore _userStore = new();
+    private readonly InMemoryTenantStore _tenantStore = new();
     private readonly InMemoryRefreshTokenStore _refreshTokenStore = new();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly RecordingAuditLog _auditLog = new();
-    private readonly User _user = TestData.NewUser();
+    private readonly Tenant _tenant = TestData.NewTenant();
+    private readonly User _user;
 
     public LoginUserCommandHandlerTests()
     {
+        _tenantStore.Add(_tenant);
+        _user = TestData.NewUser(_tenant.Id);
         _userStore.Add(_user);
         _passwordHasher.Verify(Password, _user.PasswordHash).Returns(true);
     }
@@ -28,6 +33,7 @@ public sealed class LoginUserCommandHandlerTests
     private LoginUserCommandHandler Handler => new(
         _unitOfWork,
         _userStore,
+        _tenantStore,
         _refreshTokenStore,
         _passwordHasher,
         new FakeTokenProvider(),
@@ -90,5 +96,38 @@ public sealed class LoginUserCommandHandlerTests
 
         _auditLog.Records.ShouldHaveSingleItem().Action.ShouldBe(UserAuditActions.LoginSucceeded);
         _unitOfWork.SaveChangesCount.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnAccountDisabledAndIssueNoToken_WhenUserIsDeactivated()
+    {
+        // Arrange
+        _user.Deactivate();
+
+        // Act
+        Result<AccessTokensResponse> result = await Handler.HandleAsync(
+            new LoginUserCommand(_user.Email, Password),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Error.ShouldBe(UserErrors.AccountDisabled);
+        _refreshTokenStore.Tokens.ShouldBeEmpty();
+        _auditLog.Records.ShouldHaveSingleItem().Metadata!["reason"].ShouldBe("account_disabled");
+    }
+
+    [Fact]
+    public async Task Handle_Should_ReturnAccountDisabled_WhenTenantIsDeactivated()
+    {
+        // Arrange
+        _tenant.Deactivate();
+
+        // Act
+        Result<AccessTokensResponse> result = await Handler.HandleAsync(
+            new LoginUserCommand(_user.Email, Password),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Error.ShouldBe(UserErrors.AccountDisabled);
+        _refreshTokenStore.Tokens.ShouldBeEmpty();
     }
 }

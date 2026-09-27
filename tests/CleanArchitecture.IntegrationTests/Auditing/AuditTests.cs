@@ -20,7 +20,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
     {
         // Arrange
         string email = UniqueEmail();
-        Guid userId = await RegisterUserAsync(email);
+        Guid userId = await CreateUserAsync(email);
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "users/login")
         {
@@ -37,13 +37,18 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
         List<AuditEntry> entries = await EntriesForUserAsync(userId);
         entries.Select(e => e.Action).ShouldBe(
         [
-            UserAuditActions.Registered,
             UserAuditActions.LoginFailed,
             UserAuditActions.LoginSucceeded
         ]);
         entries.ShouldAllBe(e => e.TenantId != null && e.EntityName == "User");
 
-        AuditEntry failed = entries[1];
+        // The creation is attributed to the admin who created the user, in the user's tenant.
+        AuditEntry created = await WithDbContextAsync(db => db.AuditEntries.AsNoTracking()
+            .SingleAsync(a => a.Action == UserAuditActions.Created && a.EntityId == userId.ToString(), CancellationToken));
+        created.UserId.ShouldNotBe(userId);
+        created.TenantId.ShouldBe(entries[0].TenantId);
+
+        AuditEntry failed = entries[0];
         failed.Severity.ShouldBe(AuditSeverity.Warning);
         failed.CorrelationId.ShouldBe("audit-test-correlation");
         failed.UserAgent.ShouldBe("IntegrationTests/1.0");
@@ -55,7 +60,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task RefreshTokenReuse_Should_BeAuditedAsCritical()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         await HttpClient.PostAsJsonAsync("users/refresh-token", new { refreshToken = account.Tokens.RefreshToken }, CancellationToken);
 
         // Act
@@ -71,7 +76,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task RefreshAfterLogout_Should_NotRaiseAReuseAlarm()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
         await HttpClient.PostAsJsonAsync("users/logout", new { refreshToken = account.Tokens.RefreshToken }, CancellationToken);
 
@@ -90,7 +95,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
     public async Task AuditEntries_Should_BeAppendOnlyInTheDatabase(string sql)
     {
         // Arrange
-        await RegisterUserAsync(UniqueEmail());
+        await CreateUserAsync(UniqueEmail());
 
         // Act
         PostgresException exception = await Should.ThrowAsync<PostgresException>(

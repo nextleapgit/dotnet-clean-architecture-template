@@ -1,10 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
+using CleanArchitecture.Domain.Users;
 using CleanArchitecture.IntegrationTests.Todos;
 
 namespace CleanArchitecture.IntegrationTests.Tenancy;
 
-/// <summary>Each registration creates its own tenant, so two accounts are two tenants.</summary>
+/// <summary>Every account is created in its own tenant unless a test says otherwise.</summary>
 public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) : BaseIntegrationTest(factory)
 {
     private sealed record UserDto(Guid Id, Guid TenantId, string Email);
@@ -15,11 +16,11 @@ public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) :
     public async Task OtherTenant_Should_NotReadOrModifyTodos()
     {
         // Arrange
-        Account owner = await RegisterAndLoginAsync();
+        Account owner = await CreateAccountAsync();
         Authenticate(owner.Tokens.AccessToken);
         Guid todoId = await TodoApi.CreateAsync(HttpClient, "Tenant A secret", CancellationToken);
 
-        Account intruder = await RegisterAndLoginAsync();
+        Account intruder = await CreateAccountAsync();
         HttpClient intruderClient = CreateClient();
         Authenticate(intruderClient, intruder.Tokens.AccessToken);
 
@@ -41,26 +42,39 @@ public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) :
     }
 
     [Fact]
-    public async Task OtherTenant_Should_NotSeeUsers()
+    public async Task OtherTenantsManager_Should_NotSeeOrManageUsers()
     {
         // Arrange
-        Account owner = await RegisterAndLoginAsync();
-        Account intruder = await RegisterAndLoginAsync();
+        Account victim = await CreateAccountAsync();
+        Account intruder = await CreateAccountAsync(Role.Manager);
         Authenticate(intruder.Tokens.AccessToken);
 
         // Act
-        HttpResponseMessage response = await HttpClient.GetAsync($"users/{owner.UserId}", CancellationToken);
+        HttpStatusCode get = (await HttpClient.GetAsync($"users/{victim.UserId}", CancellationToken)).StatusCode;
+        HttpStatusCode rename = (await HttpClient.PutAsJsonAsync(
+            $"users/{victim.UserId}",
+            new { firstName = "Hacked", lastName = "User" },
+            CancellationToken)).StatusCode;
+        HttpStatusCode promote = (await HttpClient.PutAsJsonAsync(
+            $"users/{victim.UserId}/role",
+            new { role = Role.Manager },
+            CancellationToken)).StatusCode;
+        HttpStatusCode deactivate = (await HttpClient.PutAsync($"users/{victim.UserId}/deactivate", null, CancellationToken)).StatusCode;
 
         // Assert
-        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        get.ShouldBe(HttpStatusCode.NotFound);
+        rename.ShouldBe(HttpStatusCode.NotFound);
+        promote.ShouldBe(HttpStatusCode.NotFound);
+        deactivate.ShouldBe(HttpStatusCode.NotFound);
+        (await LoginAsync(victim.Email)).AccessToken.ShouldNotBeNullOrEmpty();
     }
 
     [Fact]
     public async Task UserList_Should_NotIncludeOtherTenantsUsers()
     {
         // Arrange
-        Account owner = await RegisterAndLoginAsync();
-        Account intruder = await RegisterAndLoginAsync();
+        Account owner = await CreateAccountAsync();
+        Account intruder = await CreateAccountAsync(Role.Manager);
         Authenticate(intruder.Tokens.AccessToken);
 
         // Act
@@ -68,25 +82,7 @@ public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) :
 
         // Assert
         page!.Items.ShouldNotContain(u => u.Id == owner.UserId);
-        page.Items.ShouldAllBe(u => u.Id == intruder.UserId);
+        page.Items.ShouldAllBe(u => u.TenantId == intruder.TenantId);
         page.TotalCount.ShouldBe(1);
-    }
-
-    [Fact]
-    public async Task EachRegistration_Should_GetItsOwnTenant()
-    {
-        // Arrange
-        Account first = await RegisterAndLoginAsync();
-        Account second = await RegisterAndLoginAsync();
-
-        // Act
-        Authenticate(first.Tokens.AccessToken);
-        UserDto firstUser = (await HttpClient.GetFromJsonAsync<UserDto>($"users/{first.UserId}", CancellationToken))!;
-        Authenticate(second.Tokens.AccessToken);
-        UserDto secondUser = (await HttpClient.GetFromJsonAsync<UserDto>($"users/{second.UserId}", CancellationToken))!;
-
-        // Assert
-        firstUser.TenantId.ShouldNotBe(Guid.Empty);
-        firstUser.TenantId.ShouldNotBe(secondUser.TenantId);
     }
 }

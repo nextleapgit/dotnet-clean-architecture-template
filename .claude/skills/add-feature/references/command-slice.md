@@ -139,4 +139,4 @@ await emailOutbox.EnqueueAsync(email.Value, expiresAtUtc, cancellationToken); //
 await transaction.CommitAsync(cancellationToken);
 ```
 
-See `RegisterUserCommandHandler` for the live example.
+See `CreateUserCommandHandler` for the live example.

@@ -15,8 +15,17 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
     public Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
 
+    public Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
+        InTenant(tenantId).SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
     public Task<bool> ExistsAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
-        dbContext.Users.AnyAsync(u => u.TenantId == tenantId && u.Id == userId, cancellationToken);
+        InTenant(tenantId).AnyAsync(u => u.Id == userId, cancellationToken);
+
+    public Task<bool> IsActiveAdminAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
+        InTenant(tenantId).AnyAsync(u => u.Id == userId && u.Role == Role.Admin && u.IsActive, cancellationToken);
+
+    public Task<bool> AdminExistsAsync(CancellationToken cancellationToken) =>
+        dbContext.Users.AnyAsync(u => u.Role == Role.Admin, cancellationToken);
 
     public Task<UserResponse?> GetResponseAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         ToResponse(InTenant(tenantId).Where(u => u.Id == userId)).SingleOrDefaultAsync(cancellationToken);
@@ -58,6 +67,8 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
             TenantId = u.TenantId.Value,
             Email = u.Email,
             FirstName = u.FirstName,
-            LastName = u.LastName
+            LastName = u.LastName,
+            Role = u.Role,
+            IsActive = u.IsActive
         });
 }

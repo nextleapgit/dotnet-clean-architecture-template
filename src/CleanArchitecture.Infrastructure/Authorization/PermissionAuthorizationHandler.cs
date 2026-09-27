@@ -21,7 +21,7 @@ internal sealed class PermissionAuthorizationHandler(IServiceScopeFactory servic
 
         PermissionProvider permissionProvider = scope.ServiceProvider.GetRequiredService<PermissionProvider>();
 
-        HashSet<string> permissions = await permissionProvider.GetForUserIdAsync(userId);
+        IReadOnlySet<string> permissions = await permissionProvider.GetForUserIdAsync(userId);
 
         if (permissions.Contains(requirement.Permission))
         {

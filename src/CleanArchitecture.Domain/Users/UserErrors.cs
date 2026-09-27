@@ -23,4 +23,21 @@ public static class UserErrors
     public static readonly Error InvalidRefreshToken = Error.Problem(
         "Users.InvalidRefreshToken",
         "The provided refresh token is invalid or has expired");
+
+    // Reported only after the password was verified, so it does not reveal which emails exist.
+    public static readonly Error AccountDisabled = Error.Forbidden(
+        "Users.AccountDisabled",
+        "The account or its tenant has been deactivated.");
+
+    public static readonly Error AdminRoleNotAssignable = Error.Problem(
+        "Users.AdminRoleNotAssignable",
+        "The Admin role cannot be assigned.");
+
+    public static readonly Error AdminNotManageable = Error.Forbidden(
+        "Users.AdminNotManageable",
+        "Admin accounts cannot be managed through user management.");
+
+    public static readonly Error CannotChangeOwnAccess = Error.Problem(
+        "Users.CannotChangeOwnAccess",
+        "You cannot change your own role or deactivate your own account.");
 }

@@ -55,7 +55,7 @@ public sealed class ApiConventionTests(IntegrationTestWebAppFactory factory) : B
         ApplicationEndpoints()
             .Where(endpoint => endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)
             .Select(Route)
-            .ShouldBe(["api/v1/users/login", "api/v1/users/refresh-token", "api/v1/users/register"], ignoreOrder: true);
+            .ShouldBe(["api/v1/users/login", "api/v1/users/refresh-token"], ignoreOrder: true);
 
     [Fact]
     public async Task OpenApiDocument_Should_DescribeBearerAuthAndVersionedRoutes()
@@ -80,7 +80,7 @@ public sealed class ApiConventionTests(IntegrationTestWebAppFactory factory) : B
     public async Task Problems_Should_CarryStableCodeAndCorrelationId()
     {
         // Arrange
-        Account account = await RegisterAndLoginAsync();
+        Account account = await CreateAccountAsync();
         Authenticate(account.Tokens.AccessToken);
         using var request = new HttpRequestMessage(HttpMethod.Get, $"todos/{Guid.NewGuid()}");
         request.Headers.Add("Correlation-Id", "client-correlation-42");

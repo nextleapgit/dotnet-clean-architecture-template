@@ -1,22 +1,54 @@
 # End-to-end walkthrough. Works in Visual Studio, Rider, and VS Code (REST Client).
 # Start the stack first: docker compose up -d --build   (or run the API locally on the same port)
+# In Development the first admin is created at start-up from Bootstrap:Admin (appsettings.Development.json).
+# Roles in requests and responses are numbers: 0 = Member, 1 = Manager, 2 = Admin (never assignable).
 
 @baseUrl = http://localhost:5000
 @api = {{baseUrl}}/api/v1
-@email = demo@example.com
+@adminEmail = admin@cleanarchitecture.local
+@adminPassword = Admin123!
+@email = manager@example.com
 @password = Password123
 
 ### Health (database readiness only)
 GET {{baseUrl}}/health/ready
 
-### 1. Register — creates a tenant and a user, audits it, and queues a welcome email (see Mailpit: http://localhost:8025)
-# @name register
-POST {{api}}/users/register
+### 1. Sign in as the admin
+# @name adminLogin
+POST {{api}}/users/login
 Content-Type: application/json
 
-{ "email": "{{email}}", "firstName": "Demo", "lastName": "User", "password": "{{password}}" }
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
 
-### 2. Login
+@adminToken = {{adminLogin.response.body.accessToken}}
+
+### 2. Admin: create a tenant
+# @name createTenant
+POST {{api}}/tenants
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "name": "Acme" }
+
+@tenantId = {{createTenant.response.body.$}}
+
+### 3. Admin: create the tenant's manager — audited, and a welcome email is queued (see Mailpit: http://localhost:8025)
+# @name createManager
+POST {{api}}/tenants/{{tenantId}}/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{ "email": "{{email}}", "firstName": "Demo", "lastName": "Manager", "password": "{{password}}", "role": 1 }
+
+### 4. Admin: list tenants, and the users of one tenant
+GET {{api}}/tenants?page=1&pageSize=20
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{api}}/tenants/{{tenantId}}/users
+Authorization: Bearer {{adminToken}}
+
+### 5. Sign in as the manager
 # @name login
 POST {{api}}/users/login
 Content-Type: application/json
@@ -27,19 +59,51 @@ Correlation-Id: demo-login-1
 @accessToken = {{login.response.body.accessToken}}
 @refreshToken = {{login.response.body.refreshToken}}
 
-### 3. Current user (tenant-scoped)
-GET {{api}}/users/{{register.response.body.$}}
-Authorization: Bearer {{accessToken}}
-
-### 3a. My profile (taken from the token, not the request)
+### 6. My profile (taken from the token, not the request)
 GET {{api}}/users/me
 Authorization: Bearer {{accessToken}}
 
-### 3b. Users of my tenant (paged, ordered by email; pageSize 1-100)
+### 7. Manager: add a member to my tenant
+# @name createMember
+POST {{api}}/users
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "email": "member@example.com", "firstName": "Demo", "lastName": "Member", "password": "{{password}}", "role": 0 }
+
+@memberId = {{createMember.response.body.$}}
+
+### 8. Manager: users of my tenant (paged, ordered by email; pageSize 1-100)
 GET {{api}}/users?page=1&pageSize=20
 Authorization: Bearer {{accessToken}}
 
-### 4. Create a todo
+### 9. Manager: one user, rename, promote
+GET {{api}}/users/{{memberId}}
+Authorization: Bearer {{accessToken}}
+
+###
+PUT {{api}}/users/{{memberId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "firstName": "Renamed", "lastName": "Member" }
+
+###
+PUT {{api}}/users/{{memberId}}/role
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "role": 1 }
+
+### 10. Manager: deactivate (blocks sign-in and revokes sessions at once), then activate
+PUT {{api}}/users/{{memberId}}/deactivate
+Authorization: Bearer {{accessToken}}
+
+###
+PUT {{api}}/users/{{memberId}}/activate
+Authorization: Bearer {{accessToken}}
+
+### 11. Create a todo
 # @name createTodo
 POST {{api}}/todos
 Authorization: Bearer {{accessToken}}
@@ -47,35 +111,43 @@ Content-Type: application/json
 
 { "description": "Try the template", "labels": ["demo"], "priority": 2 }
 
-### 5. List my todos
+### 12. List my todos
 GET {{api}}/todos
 Authorization: Bearer {{accessToken}}
 
-### 6. Complete it
+### 13. Complete it
 PUT {{api}}/todos/{{createTodo.response.body.$}}/complete
 Authorization: Bearer {{accessToken}}
 
-### 7. Error shape: unknown todo → 404 with code + correlationId
+### 14. Error shape: unknown todo → 404 with code + correlationId
 GET {{api}}/todos/00000000-0000-0000-0000-000000000001
 Authorization: Bearer {{accessToken}}
 Correlation-Id: demo-not-found
 
-### 8. Rotate the refresh token
+### 15. Rotate the refresh token
 # @name refresh
 POST {{api}}/users/refresh-token
 Content-Type: application/json
 
 { "refreshToken": "{{refreshToken}}" }
 
-### 9. Replay the old refresh token → 400, and the whole session family is revoked (Critical audit entry)
+### 16. Replay the old refresh token → 400, and the whole session family is revoked (Critical audit entry)
 POST {{api}}/users/refresh-token
 Content-Type: application/json
 
 { "refreshToken": "{{refreshToken}}" }
 
-### 10. Logout (revokes a session you own)
+### 17. Logout (revokes a session you own)
 POST {{api}}/users/logout
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 { "refreshToken": "{{refresh.response.body.refreshToken}}" }
+
+### 18. Admin: deactivate the tenant (all its users lose access at once), then activate it
+PUT {{api}}/tenants/{{tenantId}}/deactivate
+Authorization: Bearer {{adminToken}}
+
+###
+PUT {{api}}/tenants/{{tenantId}}/activate
+Authorization: Bearer {{adminToken}}

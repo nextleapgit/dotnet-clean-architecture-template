@@ -343,10 +343,10 @@ public sealed class EmailOutboxTests(IntegrationTestWebAppFactory factory) : Bas
     }
 
     [Fact]
-    public async Task Registration_Should_EnqueueTheWelcomeEmail()
+    public async Task UserCreation_Should_EnqueueTheWelcomeEmail()
     {
         string email = UniqueEmail();
-        await RegisterUserAsync(email);
+        await CreateUserAsync(email);
 
         EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
         List<EmailOutboxMessage> pending = await WithDbContextAsync(db => db.EmailOutboxMessages.AsNoTracking()

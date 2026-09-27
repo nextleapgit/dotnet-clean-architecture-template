@@ -1,22 +1,24 @@
+using CleanArchitecture.Domain.Users;
+using CleanArchitecture.Infrastructure.Database;
+using Microsoft.EntityFrameworkCore;
+
 namespace CleanArchitecture.Infrastructure.Authorization;
 
-internal sealed class PermissionProvider
+internal sealed class PermissionProvider(ApplicationDbContext dbContext)
 {
-    // Permissions granted to every authenticated user.
-    private static readonly string[] DefaultPermissions =
-    [
-        Permissions.UsersRead,
-        Permissions.TodosRead,
-        Permissions.TodosWrite,
-        Permissions.SessionsManage
-    ];
-
-    public Task<HashSet<string>> GetForUserIdAsync(Guid userId)
+    /// <summary>
+    /// Read from the database on every request, not from the token, so that deactivating a user
+    /// or tenant and changing a role take effect immediately. An inactive user or tenant has none.
+    /// </summary>
+    public async Task<IReadOnlySet<string>> GetForUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        // TODO: Load role-based permissions for the user once a role/permission model is persisted.
-        // A tenant must never be able to grant a permission it does not hold itself.
-        HashSet<string> permissionsSet = [.. DefaultPermissions];
+        Role? role = await (
+                from user in dbContext.Users.AsNoTracking()
+                join tenant in dbContext.Tenants.AsNoTracking() on user.TenantId equals tenant.Id
+                where user.Id == userId && user.IsActive && tenant.IsActive
+                select (Role?)user.Role)
+            .SingleOrDefaultAsync(cancellationToken);
 
-        return Task.FromResult(permissionsSet);
+        return role is null ? new HashSet<string>() : RolePermissions.For(role.Value);
     }
 }

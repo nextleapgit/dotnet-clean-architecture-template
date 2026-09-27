@@ -65,6 +65,8 @@ public sealed class InMemoryUserStore : IUserStore
         FirstName = u.FirstName,
         LastName = u.LastName,
         Role = u.Role,
-        IsActive = u.IsActive
+        IsActive = u.IsActive,
+        InvitationPending = !u.HasPassword,
+        LockoutEndUtc = u.LockoutEndUtc
     };
 }

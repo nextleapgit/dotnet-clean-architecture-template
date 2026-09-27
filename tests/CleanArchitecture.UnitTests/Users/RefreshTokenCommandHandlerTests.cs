@@ -32,7 +32,7 @@ public sealed class RefreshTokenCommandHandlerTests
 
     private RefreshToken IssueStoredToken(string rawToken, DateTime createdAtUtc)
     {
-        var token = RefreshToken.Issue(_user.Id, _tokenProvider.HashRefreshToken(rawToken), createdAtUtc, Lifetime);
+        var token = RefreshToken.Issue(_user.Id, _tokenProvider.HashOpaqueToken(rawToken), createdAtUtc, Lifetime);
         _store.Add(token);
 
         return token;
@@ -99,7 +99,7 @@ public sealed class RefreshTokenCommandHandlerTests
         result.Value.AccessToken.ShouldBe($"access-{_user.Id}");
 
         RefreshToken successor = _store.Tokens.Single(t => t.Id != original.Id);
-        successor.TokenHash.ShouldBe(_tokenProvider.HashRefreshToken(result.Value.RefreshToken));
+        successor.TokenHash.ShouldBe(_tokenProvider.HashOpaqueToken(result.Value.RefreshToken));
         successor.FamilyId.ShouldBe(original.FamilyId);
         original.IsRevoked.ShouldBeTrue();
         original.ReplacedByTokenId.ShouldBe(successor.Id);

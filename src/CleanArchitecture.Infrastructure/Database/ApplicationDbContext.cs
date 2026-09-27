@@ -21,6 +21,8 @@ public sealed class ApplicationDbContext(
 
     public DbSet<RefreshToken> RefreshTokens { get; set; }
 
+    public DbSet<UserToken> UserTokens { get; set; }
+
     public DbSet<TodoItem> TodoItems { get; set; }
 
     internal DbSet<AuditEntry> AuditEntries { get; set; }

@@ -16,16 +16,24 @@ public sealed class User : Entity
     public string Email { get; private set; }
     public string FirstName { get; private set; }
     public string LastName { get; private set; }
-    public string PasswordHash { get; private set; }
+
+    /// <summary>Null until the user accepts their invitation and chooses a password.</summary>
+    public string? PasswordHash { get; private set; }
+
     public Role Role { get; private set; }
     public bool IsActive { get; private set; }
+    public int FailedLoginAttempts { get; private set; }
+    public DateTime? LockoutEndUtc { get; private set; }
 
+    public bool HasPassword => PasswordHash is not null;
+
+    /// <param name="passwordHash">Null for an invited user, who sets the password when accepting the invitation.</param>
     public static User Create(
         TenantId tenantId,
         string email,
         string firstName,
         string lastName,
-        string passwordHash,
+        string? passwordHash,
         Role role)
     {
         var user = new User
@@ -53,25 +61,67 @@ public sealed class User : Entity
         Raise(new UserUpdatedDomainEvent(Id));
     }
 
-    /// <summary>The Admin role is never assigned here: admins come only from the start-up bootstrap.</summary>
-    public Result ChangeRole(Role role)
+    /// <summary>Who may assign which role is decided by the use case; the entity only records it.</summary>
+    public void ChangeRole(Role role)
     {
-        if (role == Role.Admin)
-        {
-            return Result.Failure(UserErrors.AdminRoleNotAssignable);
-        }
-
         if (Role == role)
         {
-            return Result.Success();
+            return;
         }
 
         Role previousRole = Role;
         Role = role;
 
         Raise(new UserRoleChangedDomainEvent(Id, previousRole, role));
+    }
 
-        return Result.Success();
+    /// <summary>Setting a password also clears any lockout: the user proved control of the account.</summary>
+    public void SetPassword(string passwordHash)
+    {
+        PasswordHash = passwordHash;
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+
+        Raise(new UserPasswordChangedDomainEvent(Id));
+    }
+
+    public bool IsLockedOut(DateTime utcNow) => LockoutEndUtc is { } lockoutEnd && lockoutEnd > utcNow;
+
+    /// <returns>True when this failure locked the account.</returns>
+    public bool RecordFailedLogin(DateTime utcNow, int maxFailedAttempts, TimeSpan lockoutDuration)
+    {
+        FailedLoginAttempts++;
+
+        if (FailedLoginAttempts < maxFailedAttempts)
+        {
+            return false;
+        }
+
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = utcNow.Add(lockoutDuration);
+
+        Raise(new UserLockedOutDomainEvent(Id, LockoutEndUtc.Value));
+
+        return true;
+    }
+
+    public void RecordSuccessfulLogin()
+    {
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+    }
+
+    public void Unlock()
+    {
+        bool wasLocked = LockoutEndUtc is not null;
+
+        FailedLoginAttempts = 0;
+        LockoutEndUtc = null;
+
+        if (wasLocked)
+        {
+            Raise(new UserUnlockedDomainEvent(Id));
+        }
     }
 
     public void Deactivate()

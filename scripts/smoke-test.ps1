@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Exercises a running stack end to end: health, admin sign-in, tenant and user creation,
-    login, user management, todos, error shape, token rotation and reuse detection, logout,
-    deactivation, and the welcome email. Uses the admin from Bootstrap:Admin (Development defaults).
+    invitation acceptance (link read from Mailpit), login, lockout, password change and reset,
+    user management, todos, error shape, token rotation and reuse detection, logout, and deactivation. Uses the admin from Bootstrap:Admin (Development defaults).
 
 .EXAMPLE
     docker compose up -d --build
@@ -62,6 +62,27 @@ function Assert-Status($response, [int] $expected) {
     if ($response.Status -ne $expected) { throw "expected HTTP $expected but got $($response.Status): $($response.Body)" }
 }
 
+# Waits for the newest email with this subject to reach Mailpit through the outbox and returns the token of its link.
+function Get-EmailedToken([string] $to, [string] $subject) {
+    $query = [uri]::EscapeDataString("to:`"$to`" subject:`"$subject`"")
+    $deadline = (Get-Date).AddSeconds(30)
+    do {
+        $messages = Invoke-RestMethod "$MailpitUrl/api/v1/search?query=$query" -UseBasicParsing
+        if ($messages.messages_count -ge 1) {
+            $message = Invoke-RestMethod "$MailpitUrl/api/v1/message/$($messages.messages[0].ID)" -UseBasicParsing
+            if ($message.Text -match "token=(\S+)") { return $Matches[1] }
+        }
+        Start-Sleep -Seconds 2
+    } until ((Get-Date) -gt $deadline)
+    throw "no '$subject' email for $to in Mailpit"
+}
+
+# Accepts the emailed invitation of a user, choosing the given password.
+function Complete-Invitation([string] $to, [string] $password) {
+    $token = Get-EmailedToken $to "You have been invited"
+    Assert-Status (Invoke-Api POST "$api/users/invitations/accept" @{ token = $token; password = $password }) 204
+}
+
 Write-Host "Waiting for $BaseUrl/health/ready ..."
 $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
 do {
@@ -85,14 +106,24 @@ Step "admin signs in and creates a tenant" {
     $state.TenantId = ($r.Body | ConvertFrom-Json)
 }
 
-Step "admin creates the tenant's manager" {
-    $r = Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email; firstName = "Smoke"; lastName = "Test"; password = $password; role = 1 } -token $state.Admin
+Step "admin invites the tenant's manager" {
+    $r = Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email; firstName = "Smoke"; lastName = "Test"; role = 1 } -token $state.Admin
     Assert-Status $r 200
     $state.UserId = ($r.Body | ConvertFrom-Json)
 }
 
 Step "duplicate email (different case) is rejected with 409" {
-    Assert-Status (Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email.ToUpperInvariant(); firstName = "A"; lastName = "B"; password = $password; role = 0 } -token $state.Admin) 409
+    Assert-Status (Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $email.ToUpperInvariant(); firstName = "A"; lastName = "B"; role = 0 } -token $state.Admin) 409
+}
+
+Step "an invited user cannot sign in before accepting the invitation" {
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $email; password = $password }) 401
+}
+
+Step "the invitation email is delivered (Mailpit) and accepting it sets the password, once" {
+    $token = Get-EmailedToken $email "You have been invited"
+    Assert-Status (Invoke-Api POST "$api/users/invitations/accept" @{ token = $token; password = $password }) 204
+    Assert-Status (Invoke-Api POST "$api/users/invitations/accept" @{ token = $token; password = "Another123" }) 400
 }
 
 Step "self sign-up does not exist" {
@@ -123,9 +154,10 @@ Step "current user is readable within its tenant" {
 
 Step "manager creates a member, lists the tenant's users, and deactivates the member" {
     $memberEmail = "member-$email"
-    $r = Invoke-Api POST "$api/users" @{ email = $memberEmail; firstName = "Smoke"; lastName = "Member"; password = $password; role = 0 } -token $state.Access
+    $r = Invoke-Api POST "$api/users" @{ email = $memberEmail; firstName = "Smoke"; lastName = "Member"; role = 0 } -token $state.Access
     Assert-Status $r 200
     $memberId = $r.Body | ConvertFrom-Json
+    Complete-Invitation $memberEmail $password
     $list = Invoke-Api GET "$api/users" -token $state.Access
     Assert-Status $list 200
     if (($list.Body | ConvertFrom-Json).totalCount -ne 2) { throw "expected two users in the tenant" }
@@ -134,6 +166,18 @@ Step "manager creates a member, lists the tenant's users, and deactivates the me
     Assert-Status (Invoke-Api PUT "$api/users/$memberId/deactivate" -token $state.Access) 204
     Assert-Status (Invoke-Api GET "$api/users/me" -token $member.accessToken) 403
     Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $memberEmail; password = $password }) 403
+}
+
+Step "repeated wrong passwords lock the account until a manager unlocks it" {
+    $lockedEmail = "locked-$email"
+    $r = Invoke-Api POST "$api/users" @{ email = $lockedEmail; firstName = "Smoke"; lastName = "Locked"; role = 0 } -token $state.Access
+    Assert-Status $r 200
+    $lockedId = $r.Body | ConvertFrom-Json
+    Complete-Invitation $lockedEmail $password
+    1..5 | ForEach-Object { Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $lockedEmail; password = "WrongPassword1" }) 401 }
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $lockedEmail; password = $password }) 403
+    Assert-Status (Invoke-Api PUT "$api/users/$lockedId/unlock" -token $state.Access) 204
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $lockedEmail; password = $password }) 200
 }
 
 Step "manager cannot administer tenants" {
@@ -174,14 +218,23 @@ Step "logout revokes a fresh session" {
     Assert-Status (Invoke-Api POST "$api/users/refresh-token" @{ refreshToken = $login.refreshToken }) 400
 }
 
-Step "welcome email is delivered through the outbox (Mailpit)" {
-    $deadline = (Get-Date).AddSeconds(30)
-    do {
-        $messages = Invoke-RestMethod "$MailpitUrl/api/v1/search?query=to:$email" -UseBasicParsing
-        if ($messages.messages_count -ge 1) { return }
-        Start-Sleep -Seconds 2
-    } until ((Get-Date) -gt $deadline)
-    throw "no welcome email for $email in Mailpit"
+Step "changing the password requires the current one and ends the other sessions" {
+    $other = (Invoke-Api POST "$api/users/login" @{ email = $email; password = $password }).Body | ConvertFrom-Json
+    $current = (Invoke-Api POST "$api/users/login" @{ email = $email; password = $password }).Body | ConvertFrom-Json
+    Assert-Status (Invoke-Api PUT "$api/users/me/password" @{ currentPassword = "WrongPassword1"; newPassword = "Changed123" } -token $current.accessToken) 400
+    Assert-Status (Invoke-Api PUT "$api/users/me/password" @{ currentPassword = $password; newPassword = "Changed123" } -token $current.accessToken) 204
+    Assert-Status (Invoke-Api POST "$api/users/refresh-token" @{ refreshToken = $other.refreshToken }) 400
+    Assert-Status (Invoke-Api POST "$api/users/refresh-token" @{ refreshToken = $current.refreshToken }) 200
+    $script:password = "Changed123"
+}
+
+Step "forgot password answers 202 for unknown emails too; the emailed link resets the password once" {
+    Assert-Status (Invoke-Api POST "$api/users/password/forgot" @{ email = "nobody-$email" }) 202
+    Assert-Status (Invoke-Api POST "$api/users/password/forgot" @{ email = $email }) 202
+    $token = Get-EmailedToken $email "Reset your password"
+    Assert-Status (Invoke-Api POST "$api/users/password/reset" @{ token = $token; newPassword = "Reset12345" }) 204
+    Assert-Status (Invoke-Api POST "$api/users/password/reset" @{ token = $token; newPassword = "Again12345" }) 400
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $email; password = "Reset12345" }) 200
 }
 
 Step "API reference (Scalar) is served" {

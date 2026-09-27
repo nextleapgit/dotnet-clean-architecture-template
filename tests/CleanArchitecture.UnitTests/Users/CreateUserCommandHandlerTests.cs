@@ -1,42 +1,34 @@
-using CleanArchitecture.Application.Abstractions.Authentication;
 using CleanArchitecture.Application.Users;
 using CleanArchitecture.Application.Users.Create;
 using CleanArchitecture.BuildingBlocks.Auditing;
+using CleanArchitecture.BuildingBlocks.Email;
 using CleanArchitecture.Domain.Tenants;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.SharedKernel;
-using CleanArchitecture.UnitTests.Fakes;
 
 namespace CleanArchitecture.UnitTests.Users;
 
 public sealed class CreateUserCommandHandlerTests
 {
     private readonly UserAdministrationFixture _fixture = new();
-    private readonly RecordingEmailOutbox _emailOutbox;
-    private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
-
-    public CreateUserCommandHandlerTests()
-    {
-        _emailOutbox = new RecordingEmailOutbox(_fixture.UnitOfWork);
-        _passwordHasher.Hash(Arg.Any<string>()).Returns("hashed");
-    }
 
     private static CancellationToken CancellationToken => TestContext.Current.CancellationToken;
 
     private CreateUserCommandHandler HandlerFor(User actor) => new(
         _fixture.UnitOfWork,
         _fixture.TenantAccessFor(actor),
+        _fixture.UserManagementFor(actor),
         _fixture.Users,
-        _passwordHasher,
-        TestData.Clock(),
+        _fixture.TokenIssuer(),
+        _fixture.ClientLinks,
         _fixture.AuditLog,
-        _emailOutbox);
+        _fixture.EmailOutbox);
 
     private static CreateUserCommand Command(Guid? tenantId = null, string email = "new@example.com", Role role = Role.Member) =>
-        new(tenantId, email, "New", "User", "Password123", role);
+        new(tenantId, email, "New", "User", role);
 
     [Fact]
-    public async Task Handle_Should_CreateUserInOwnTenantAtomically_WhenCallerIsManager()
+    public async Task Handle_Should_CreateInvitedUserAndEmailTheInvitationAtomically_WhenCallerIsManager()
     {
         // Act
         Result<Guid> result = await HandlerFor(_fixture.Manager).HandleAsync(Command(role: Role.Manager), CancellationToken);
@@ -45,14 +37,23 @@ public sealed class CreateUserCommandHandlerTests
         User user = _fixture.Users.Users.Single(u => u.Id == result.Value);
         user.TenantId.ShouldBe(_fixture.Tenant.Id);
         user.Role.ShouldBe(Role.Manager);
-        user.PasswordHash.ShouldBe("hashed");
+        user.HasPassword.ShouldBeFalse();
+
+        UserToken invitation = _fixture.UserTokens.Tokens.ShouldHaveSingleItem();
+        invitation.UserId.ShouldBe(user.Id);
+        invitation.Purpose.ShouldBe(UserTokenPurpose.Invitation);
+        invitation.TokenHash.ShouldBe("hash(refresh-1)"); // only the hash is stored
+
+        (EmailMessage message, DateTime expiresAtUtc) = _fixture.EmailOutbox.Enqueued.ShouldHaveSingleItem();
+        message.Recipient.ShouldBe("new@example.com");
+        message.TextBody.ShouldContain("https://app.test/accept-invitation?token=refresh-1");
+        expiresAtUtc.ShouldBe(invitation.ExpiresAtUtc);
 
         AuditRecord audit = _fixture.AuditLog.Records.ShouldHaveSingleItem();
         audit.Action.ShouldBe(UserAuditActions.Created);
         audit.EntityId.ShouldBe(user.Id.ToString());
         audit.TenantId.ShouldBe(_fixture.Tenant.Id);
 
-        _emailOutbox.Enqueued.ShouldHaveSingleItem().Message.Recipient.ShouldBe("new@example.com");
         _fixture.UnitOfWork.SavesInsideTransaction.ShouldBe(1);
         _fixture.UnitOfWork.Committed.ShouldBeTrue();
     }
@@ -67,6 +68,33 @@ public sealed class CreateUserCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_Should_CreateAnotherAdmin_WhenAdminTargetsThePlatformTenant()
+    {
+        Result<Guid> result = await HandlerFor(_fixture.Admin)
+            .HandleAsync(Command(_fixture.Platform.Id.Value, role: Role.Admin), CancellationToken);
+
+        _fixture.Users.Users.Single(u => u.Id == result.Value).Role.ShouldBe(Role.Admin);
+    }
+
+    [Fact]
+    public async Task Handle_Should_RefuseAdminRole_OutsideThePlatformTenant()
+    {
+        Result<Guid> result = await HandlerFor(_fixture.Admin)
+            .HandleAsync(Command(_fixture.OtherTenant.Id.Value, role: Role.Admin), CancellationToken);
+
+        result.Error.ShouldBe(UserErrors.AdminRoleNotAssignable);
+    }
+
+    [Fact]
+    public async Task Handle_Should_RefuseAdminRole_WhenCallerIsNotAdmin()
+    {
+        Result<Guid> result = await HandlerFor(_fixture.Manager).HandleAsync(Command(role: Role.Admin), CancellationToken);
+
+        result.Error.ShouldBe(UserErrors.AdminRoleNotAssignable);
+        _fixture.UnitOfWork.SaveChangesCount.ShouldBe(0);
+    }
+
+    [Fact]
     public async Task Handle_Should_ReturnNotFoundAndCreateNothing_WhenManagerTargetsAnotherTenant()
     {
         int before = _fixture.Users.Users.Count;
@@ -76,7 +104,7 @@ public sealed class CreateUserCommandHandlerTests
 
         result.Error.ShouldBe(TenantErrors.NotFound(other));
         _fixture.Users.Users.Count.ShouldBe(before);
-        _emailOutbox.Enqueued.ShouldBeEmpty();
+        _fixture.EmailOutbox.Enqueued.ShouldBeEmpty();
     }
 
     [Fact]

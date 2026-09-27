@@ -14,6 +14,8 @@ public interface ITenantStore
     /// <summary>False for an inactive or unknown tenant.</summary>
     Task<bool> IsActiveAsync(TenantId tenantId, CancellationToken cancellationToken);
 
+    Task<bool> IsPlatformAsync(TenantId tenantId, CancellationToken cancellationToken);
+
     Task<TenantResponse?> GetResponseAsync(TenantId tenantId, CancellationToken cancellationToken);
 
     /// <summary>All tenants, ordered by name.</summary>

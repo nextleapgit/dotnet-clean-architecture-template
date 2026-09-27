@@ -1,7 +1,9 @@
 # End-to-end walkthrough. Works in Visual Studio, Rider, and VS Code (REST Client).
 # Start the stack first: docker compose up -d --build   (or run the API locally on the same port)
 # In Development the first admin is created at start-up from Bootstrap:Admin (appsettings.Development.json).
-# Roles in requests and responses are numbers: 0 = Member, 1 = Manager, 2 = Admin (never assignable).
+# Roles in requests and responses are numbers: 0 = Member, 1 = Manager, 2 = Admin (platform tenant, by an admin only).
+# Users are invited: the invitation email (Mailpit: http://localhost:8025) holds a link ending in ?token=...;
+# paste that token into @invitationToken (and later @resetToken) before sending the request that uses it.
 
 @baseUrl = http://localhost:5000
 @api = {{baseUrl}}/api/v1
@@ -9,6 +11,9 @@
 @adminPassword = Admin123!
 @email = manager@example.com
 @password = Password123
+@invitationToken = paste-the-token-from-the-invitation-email
+@memberInvitationToken = paste-the-token-from-the-member-invitation-email
+@resetToken = paste-the-token-from-the-reset-email
 
 ### Health (database readiness only)
 GET {{baseUrl}}/health/ready
@@ -32,13 +37,26 @@ Content-Type: application/json
 
 @tenantId = {{createTenant.response.body.$}}
 
-### 3. Admin: create the tenant's manager — audited, and a welcome email is queued (see Mailpit: http://localhost:8025)
+### 3. Admin: invite the tenant's manager — audited, and an invitation email is queued (see Mailpit: http://localhost:8025)
+# The user has no password until they accept; nobody else ever knows it.
 # @name createManager
 POST {{api}}/tenants/{{tenantId}}/users
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-{ "email": "{{email}}", "firstName": "Demo", "lastName": "Manager", "password": "{{password}}", "role": 1 }
+{ "email": "{{email}}", "firstName": "Demo", "lastName": "Manager", "role": 1 }
+
+@managerId = {{createManager.response.body.$}}
+
+### 3a. (Optional) Admin: resend the invitation — the previous link stops working
+POST {{api}}/tenants/{{tenantId}}/users/{{managerId}}/invitation
+Authorization: Bearer {{adminToken}}
+
+### 3b. The manager accepts the invitation and chooses a password (single use; the link expires after 3 days)
+POST {{api}}/users/invitations/accept
+Content-Type: application/json
+
+{ "token": "{{invitationToken}}", "password": "{{password}}" }
 
 ### 4. Admin: list tenants, and the users of one tenant
 GET {{api}}/tenants?page=1&pageSize=20
@@ -69,9 +87,15 @@ POST {{api}}/users
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
-{ "email": "member@example.com", "firstName": "Demo", "lastName": "Member", "password": "{{password}}", "role": 0 }
+{ "email": "member@example.com", "firstName": "Demo", "lastName": "Member", "role": 0 }
 
 @memberId = {{createMember.response.body.$}}
+
+### 7a. The member accepts their invitation
+POST {{api}}/users/invitations/accept
+Content-Type: application/json
+
+{ "token": "{{memberInvitationToken}}", "password": "{{password}}" }
 
 ### 8. Manager: users of my tenant (paged, ordered by email; pageSize 1-100)
 GET {{api}}/users?page=1&pageSize=20
@@ -101,6 +125,10 @@ Authorization: Bearer {{accessToken}}
 
 ###
 PUT {{api}}/users/{{memberId}}/activate
+Authorization: Bearer {{accessToken}}
+
+### 10a. Manager: unlock a member locked out by 5 failed sign-ins (15 minutes otherwise)
+PUT {{api}}/users/{{memberId}}/unlock
 Authorization: Bearer {{accessToken}}
 
 ### 11. Create a todo
@@ -144,7 +172,26 @@ Content-Type: application/json
 
 { "refreshToken": "{{refresh.response.body.refreshToken}}" }
 
-### 18. Admin: deactivate the tenant (all its users lose access at once), then activate it
+### 18. Change my password (current password required; ends my other sessions, and a notice is emailed)
+PUT {{api}}/users/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "currentPassword": "{{password}}", "newPassword": "Changed123" }
+
+### 19. Forgot password → always 202, so it does not reveal which emails exist; a reset link is emailed (1 hour)
+POST {{api}}/users/password/forgot
+Content-Type: application/json
+
+{ "email": "{{email}}" }
+
+### 20. Reset the password with the emailed token (single use; signs out every session)
+POST {{api}}/users/password/reset
+Content-Type: application/json
+
+{ "token": "{{resetToken}}", "newPassword": "{{password}}" }
+
+### 21. Admin: deactivate the tenant (all its users lose access at once), then activate it
 PUT {{api}}/tenants/{{tenantId}}/deactivate
 Authorization: Bearer {{adminToken}}
 

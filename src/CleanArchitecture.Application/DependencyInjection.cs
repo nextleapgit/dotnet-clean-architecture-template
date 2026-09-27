@@ -11,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<TenantAccess>();
         services.AddScoped<UserManagement>();
+        services.AddScoped<UserTokenIssuer>();
 
         return services.AddCqrs(typeof(DependencyInjection).Assembly);
     }

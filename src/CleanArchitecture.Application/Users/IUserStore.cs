@@ -11,6 +11,7 @@ public interface IUserStore
     /// <summary>
     /// Tenant-agnostic by design: the email is a global sign-in credential. Use it for
     /// authentication only — every listing or management query must be tenant-scoped.
+    /// Tracked, so sign-in can record failed attempts.
     /// </summary>
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 

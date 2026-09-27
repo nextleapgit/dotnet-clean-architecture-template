@@ -64,4 +64,4 @@ The template follows the `dotnet-*` skills except where noted here; each deviati
 | Handler registration | Explicit `AddScoped` per handler | Assembly scanning in `AddCqrs` (still scoped) | Fewer merge conflicts, decorators applied uniformly |
 | Persistence tests | SQLite | PostgreSQL via Testcontainers | The outbox relies on `FOR UPDATE SKIP LOCKED`, partial indexes, and triggers that SQLite does not have |
 | Error body | `{ code, message, correlationId }` | RFC 9457 problem details with `code`, `detail` (the message), and `correlationId` | Standard format that still carries the required fields |
-| Tenant context fields | Also Permissions, EnabledModules, Culture, TimeZone | Tenant, user, accessible tenants | Add fields when the corresponding features exist |
+| Tenant context fields | Also Permissions, EnabledModules, Culture, TimeZone | Tenant, user, session (refresh-token family), accessible tenants | Add fields when the corresponding features exist |

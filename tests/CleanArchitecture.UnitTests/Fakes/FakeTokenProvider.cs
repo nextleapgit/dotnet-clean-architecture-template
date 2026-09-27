@@ -8,9 +8,9 @@ public sealed class FakeTokenProvider : ITokenProvider
 {
     private int _counter;
 
-    public string CreateAccessToken(User user) => $"access-{user.Id}";
+    public string CreateAccessToken(User user, Guid sessionId) => $"access-{user.Id}";
 
-    public string GenerateRefreshToken() => $"refresh-{++_counter}";
+    public string GenerateOpaqueToken() => $"refresh-{++_counter}";
 
-    public string HashRefreshToken(string refreshToken) => $"hash({refreshToken})";
+    public string HashOpaqueToken(string token) => $"hash({token})";
 }

@@ -343,24 +343,25 @@ public sealed class EmailOutboxTests(IntegrationTestWebAppFactory factory) : Bas
     }
 
     [Fact]
-    public async Task UserCreation_Should_EnqueueTheWelcomeEmail()
+    public async Task UserCreation_Should_EnqueueTheInvitationEmail()
     {
         string email = UniqueEmail();
-        await CreateUserAsync(email);
+        await InviteUserAsync(email);
 
         EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
         List<EmailOutboxMessage> pending = await WithDbContextAsync(db => db.EmailOutboxMessages.AsNoTracking()
             .Where(m => m.Status == EmailOutboxStatus.Pending)
             .ToListAsync(CancellationToken));
 
-        EmailMessage welcome = pending
+        EmailMessage invitation = pending
             .Select(row => protector.Unprotect(row.Id, row.ExpiresAtUtc, row.Payload!))
             .Where(result => result.IsSuccess)
             .Select(result => result.Value)
             .Single(message => message.Recipient == email);
 
-        welcome.Subject.ShouldBe("Welcome");
-        _ownedIds.Add(welcome.Id);
+        invitation.Subject.ShouldBe(InvitationSubject);
+        invitation.TextBody.ShouldContain("https://app.integration.test/accept-invitation?token=");
+        _ownedIds.Add(invitation.Id);
     }
 }
 

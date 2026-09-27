@@ -13,7 +13,7 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
         dbContext.Users.AnyAsync(u => u.Email == normalizedEmail, cancellationToken);
 
     public Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
-        dbContext.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
+        dbContext.Users.SingleOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
 
     public Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         InTenant(tenantId).SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
@@ -69,6 +69,8 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
             FirstName = u.FirstName,
             LastName = u.LastName,
             Role = u.Role,
-            IsActive = u.IsActive
+            IsActive = u.IsActive,
+            InvitationPending = u.PasswordHash == null,
+            LockoutEndUtc = u.LockoutEndUtc
         });
 }

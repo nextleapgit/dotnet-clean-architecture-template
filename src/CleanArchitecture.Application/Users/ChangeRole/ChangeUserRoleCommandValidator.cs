@@ -7,6 +7,6 @@ internal sealed class ChangeUserRoleCommandValidator : AbstractValidator<ChangeU
     public ChangeUserRoleCommandValidator()
     {
         RuleFor(c => c.UserId).NotEmpty();
-        RuleFor(c => c.Role).AssignableRole();
+        RuleFor(c => c.Role).KnownRole();
     }
 }

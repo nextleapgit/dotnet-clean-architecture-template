@@ -105,15 +105,55 @@ public sealed class UserManagementCommandHandlerTests
     }
 
     [Fact]
-    public async Task Management_Should_RefuseAdminAccounts()
+    public async Task Management_Should_LetAdminsManageOtherAdmins()
     {
         User otherAdmin = _fixture.AddUser(_fixture.Platform, Role.Admin);
 
         Result result = await DeactivateHandler(_fixture.Admin)
             .HandleAsync(new DeactivateUserCommand(null, otherAdmin.Id), CancellationToken);
 
+        result.IsSuccess.ShouldBeTrue();
+        otherAdmin.IsActive.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task Management_Should_RefuseAdminAccounts_ToNonAdmins()
+    {
+        User platformManager = _fixture.AddUser(_fixture.Platform, Role.Manager);
+
+        Result result = await DeactivateHandler(platformManager)
+            .HandleAsync(new DeactivateUserCommand(null, _fixture.Admin.Id), CancellationToken);
+
         result.Error.ShouldBe(UserErrors.AdminNotManageable);
-        otherAdmin.IsActive.ShouldBeTrue();
+        _fixture.Admin.IsActive.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ChangeRole_Should_PromoteToAdmin_OnlyWithinThePlatformTenant()
+    {
+        User platformMember = _fixture.AddUser(_fixture.Platform);
+        User customer = _fixture.AddUser(_fixture.OtherTenant);
+
+        Result inPlatform = await ChangeRoleHandler(_fixture.Admin)
+            .HandleAsync(new ChangeUserRoleCommand(null, platformMember.Id, Role.Admin), CancellationToken);
+        Result elsewhere = await ChangeRoleHandler(_fixture.Admin)
+            .HandleAsync(new ChangeUserRoleCommand(_fixture.OtherTenant.Id.Value, customer.Id, Role.Admin), CancellationToken);
+
+        inPlatform.IsSuccess.ShouldBeTrue();
+        platformMember.Role.ShouldBe(Role.Admin);
+        elsewhere.Error.ShouldBe(UserErrors.AdminRoleNotAssignable);
+        customer.Role.ShouldBe(Role.Member);
+    }
+
+    [Fact]
+    public async Task ChangeRole_Should_RefuseAdmin_WhenCallerIsManager()
+    {
+        User member = _fixture.AddUser(_fixture.Tenant);
+
+        Result result = await ChangeRoleHandler(_fixture.Manager)
+            .HandleAsync(new ChangeUserRoleCommand(null, member.Id, Role.Admin), CancellationToken);
+
+        result.Error.ShouldBe(UserErrors.AdminRoleNotAssignable);
     }
 
     [Fact]

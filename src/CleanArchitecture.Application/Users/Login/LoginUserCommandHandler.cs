@@ -24,17 +24,38 @@ internal sealed class LoginUserCommandHandler(
     {
         User? user = await userStore.FindByEmailAsync(User.NormalizeEmail(command.Email), cancellationToken);
 
-        if (user is null)
+        if (user?.PasswordHash is null)
         {
-            // Spend the same hashing time as a real verification so response timing
-            // does not reveal which emails are registered.
+            // Unknown users, and invited users without a password yet: spend the same hashing time
+            // as a real verification so response timing does not reveal which emails are registered.
             passwordHasher.Hash(command.Password);
 
-            return await FailAsync(null, "unknown_user", UserErrors.InvalidCredentials, cancellationToken);
+            return await FailAsync(user, user is null ? "unknown_user" : "invitation_pending", UserErrors.InvalidCredentials, cancellationToken);
+        }
+
+        DateTime utcNow = dateTimeProvider.UtcNow;
+
+        // While locked, the password is not even checked, so guessing gains nothing.
+        if (user.IsLockedOut(utcNow))
+        {
+            return await FailAsync(user, "locked_out", UserErrors.LockedOut, cancellationToken);
         }
 
         if (!passwordHasher.Verify(command.Password, user.PasswordHash))
         {
+            if (user.RecordFailedLogin(utcNow, LockoutPolicy.MaxFailedAttempts, LockoutPolicy.Duration))
+            {
+                auditLog.Record(new AuditRecord(UserAuditActions.AccountLocked, nameof(User), user.Id.ToString(), AuditSeverity.Warning)
+                {
+                    TenantId = user.TenantId,
+                    UserId = user.Id,
+                    Metadata = new Dictionary<string, string>
+                    {
+                        ["lockoutEndUtc"] = user.LockoutEndUtc!.Value.ToString("O", System.Globalization.CultureInfo.InvariantCulture)
+                    }
+                });
+            }
+
             return await FailAsync(user, "invalid_password", UserErrors.InvalidCredentials, cancellationToken);
         }
 
@@ -43,13 +64,17 @@ internal sealed class LoginUserCommandHandler(
             return await FailAsync(user, "account_disabled", UserErrors.AccountDisabled, cancellationToken);
         }
 
-        string refreshToken = tokenProvider.GenerateRefreshToken();
+        user.RecordSuccessfulLogin();
 
-        refreshTokenStore.Add(RefreshToken.Issue(
+        string refreshToken = tokenProvider.GenerateOpaqueToken();
+
+        var session = RefreshToken.Issue(
             user.Id,
-            tokenProvider.HashRefreshToken(refreshToken),
-            dateTimeProvider.UtcNow,
-            RefreshTokenPolicy.Lifetime));
+            tokenProvider.HashOpaqueToken(refreshToken),
+            utcNow,
+            RefreshTokenPolicy.Lifetime);
+
+        refreshTokenStore.Add(session);
 
         auditLog.Record(new AuditRecord(UserAuditActions.LoginSucceeded, nameof(User), user.Id.ToString())
         {
@@ -59,7 +84,7 @@ internal sealed class LoginUserCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new AccessTokensResponse(tokenProvider.CreateAccessToken(user), refreshToken);
+        return new AccessTokensResponse(tokenProvider.CreateAccessToken(user, session.FamilyId), refreshToken);
     }
 
     private async Task<Result<AccessTokensResponse>> FailAsync(

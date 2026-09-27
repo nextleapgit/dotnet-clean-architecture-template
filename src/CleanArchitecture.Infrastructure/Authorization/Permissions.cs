@@ -7,6 +7,7 @@ namespace CleanArchitecture.Infrastructure.Authorization;
 public static class Permissions
 {
     public const string ProfileRead = "profile:read";
+    public const string ProfileWrite = "profile:write";
     public const string UsersRead = "users:read";
     public const string UsersWrite = "users:write";
     public const string TenantsRead = "tenants:read";

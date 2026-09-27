@@ -26,7 +26,7 @@ public sealed class LogoutUserCommandHandlerTests
     {
         var token = RefreshToken.Issue(
             _user.Id,
-            _tokenProvider.HashRefreshToken(rawToken),
+            _tokenProvider.HashOpaqueToken(rawToken),
             TestData.UtcNow.AddHours(-1),
             TimeSpan.FromDays(7));
         _store.Add(token);

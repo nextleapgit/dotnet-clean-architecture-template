@@ -1,7 +1,11 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.RegularExpressions;
+using CleanArchitecture.BuildingBlocks.Email;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.Infrastructure.Database;
+using CleanArchitecture.Infrastructure.Email;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace CleanArchitecture.IntegrationTests;
@@ -10,6 +14,8 @@ namespace CleanArchitecture.IntegrationTests;
 public abstract class BaseIntegrationTest
 {
     protected const string Password = "Password123";
+    protected const string InvitationSubject = "You have been invited";
+    protected const string PasswordResetSubject = "Reset your password";
 
     protected BaseIntegrationTest(IntegrationTestWebAppFactory factory)
     {
@@ -60,19 +66,59 @@ public abstract class BaseIntegrationTest
         return await response.Content.ReadFromJsonAsync<Guid>(CancellationToken);
     }
 
-    /// <summary>Creates a user as the admin — in a new tenant unless one is given.</summary>
-    protected async Task<Guid> CreateUserAsync(string email, Role role = Role.Member, Guid? tenantId = null)
+    /// <summary>Invites a user as the admin — in a new tenant unless one is given. The user has no password yet.</summary>
+    protected async Task<Guid> InviteUserAsync(string email, Role role = Role.Member, Guid? tenantId = null)
     {
         Guid tenant = tenantId ?? await CreateTenantAsync();
         using HttpClient admin = await CreateAdminClientAsync();
 
         HttpResponseMessage response = await admin.PostAsJsonAsync(
             $"tenants/{tenant}/users",
-            new { email, firstName = "Test", lastName = "User", password = Password, role },
+            new { email, firstName = "Test", lastName = "User", role },
             CancellationToken);
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<Guid>(CancellationToken);
+    }
+
+    /// <summary>Invites a user and accepts the invitation with <see cref="Password"/>, as the user would.</summary>
+    protected async Task<Guid> CreateUserAsync(string email, Role role = Role.Member, Guid? tenantId = null)
+    {
+        Guid userId = await InviteUserAsync(email, role, tenantId);
+        string token = await ReadEmailedTokenAsync(email, InvitationSubject);
+
+        HttpResponseMessage accept = await HttpClient.PostAsJsonAsync(
+            "users/invitations/accept",
+            new { token, password = Password },
+            CancellationToken);
+        accept.EnsureSuccessStatusCode();
+
+        return userId;
+    }
+
+    /// <summary>
+    /// The token from the newest pending email with this recipient and subject — read from the
+    /// outbox, as the user would read it from their mailbox. The worker is off in tests.
+    /// </summary>
+    protected async Task<string> ReadEmailedTokenAsync(string recipient, string subject)
+    {
+        EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
+
+        List<EmailOutboxMessage> pending = await WithDbContextAsync(db => db.EmailOutboxMessages.AsNoTracking()
+            .Where(m => m.Status == EmailOutboxStatus.Pending)
+            .OrderByDescending(m => m.CreatedAtUtc)
+            .ToListAsync(CancellationToken));
+
+        EmailMessage email = pending
+            .Select(row => protector.Unprotect(row.Id, row.ExpiresAtUtc, row.Payload!))
+            .Where(result => result.IsSuccess)
+            .Select(result => result.Value)
+            .First(message => message.Recipient == recipient && message.Subject == subject);
+
+        Match link = Regex.Match(email.TextBody, "token=([^\\s]+)", RegexOptions.None, TimeSpan.FromSeconds(1));
+        link.Success.ShouldBeTrue();
+
+        return Uri.UnescapeDataString(link.Groups[1].Value);
     }
 
     protected Task<AccessTokens> LoginAsync(string email) => LoginAsync(HttpClient, email, Password, CancellationToken);

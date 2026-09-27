@@ -17,4 +17,10 @@ public sealed record UserResponse
     public Role Role { get; init; }
 
     public bool IsActive { get; init; }
+
+    /// <summary>True until the user accepts the invitation and chooses a password.</summary>
+    public bool InvitationPending { get; init; }
+
+    /// <summary>Set while (or after) the account was locked by failed sign-ins.</summary>
+    public DateTime? LockoutEndUtc { get; init; }
 }

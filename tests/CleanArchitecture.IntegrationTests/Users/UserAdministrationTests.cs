@@ -16,7 +16,7 @@ public sealed class UserAdministrationTests(IntegrationTestWebAppFactory factory
     private sealed record TenantPageDto(List<TenantDto> Items, int TotalCount);
 
     private static object NewUser(Role role = Role.Member) =>
-        new { email = UniqueEmail(), firstName = "New", lastName = "User", password = Password, role };
+        new { email = UniqueEmail(), firstName = "New", lastName = "User", role };
 
     [Fact]
     public async Task Admin_Should_CreateTenantWithAManager_WhoManagesTheTenantsUsers()
@@ -126,6 +126,7 @@ public sealed class UserAdministrationTests(IntegrationTestWebAppFactory factory
         // Act
         HttpResponseMessage toAdmin = await HttpClient.PutAsJsonAsync($"users/{memberId}/role", new { role = Role.Admin }, CancellationToken);
         HttpResponseMessage createAdmin = await HttpClient.PostAsJsonAsync("users", NewUser(Role.Admin), CancellationToken);
+        (await ProblemCodeAsync(toAdmin)).ShouldBe("Users.AdminRoleNotAssignable");
         HttpResponseMessage demoteSelf = await HttpClient.PutAsJsonAsync($"users/{manager.UserId}/role", new { role = Role.Member }, CancellationToken);
         HttpResponseMessage deactivateSelf = await HttpClient.PutAsync($"users/{manager.UserId}/deactivate", null, CancellationToken);
 
@@ -188,7 +189,7 @@ public sealed class UserAdministrationTests(IntegrationTestWebAppFactory factory
     }
 
     [Fact]
-    public async Task Admin_Should_NotDeactivateTheirOwnTenantOrManageAdmins()
+    public async Task Admin_Should_NotDeactivateTheirOwnTenantOrChangeTheirOwnAccess()
     {
         // Arrange
         using HttpClient admin = await CreateAdminClientAsync();
@@ -201,7 +202,7 @@ public sealed class UserAdministrationTests(IntegrationTestWebAppFactory factory
         // Assert
         me.Role.ShouldBe(Role.Admin);
         (await ProblemCodeAsync(deactivateOwnTenant)).ShouldBe("Tenants.CannotDeactivateOwnTenant");
-        (await ProblemCodeAsync(demoteSelf)).ShouldBe("Users.AdminNotManageable");
+        (await ProblemCodeAsync(demoteSelf)).ShouldBe("Users.CannotChangeOwnAccess");
     }
 
     private Task<HttpResponseMessage> LoginResponseAsync(string email) =>

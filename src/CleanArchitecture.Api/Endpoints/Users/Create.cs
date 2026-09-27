@@ -10,7 +10,7 @@ namespace CleanArchitecture.Api.Endpoints.Users;
 
 internal sealed class Create : IEndpoint
 {
-    public sealed record Request(string Email, string FirstName, string LastName, string Password, Role Role);
+    public sealed record Request(string Email, string FirstName, string LastName, Role Role);
 
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
@@ -43,7 +43,6 @@ internal sealed class Create : IEndpoint
             request.Email,
             request.FirstName,
             request.LastName,
-            request.Password,
             request.Role);
 
         Result<Guid> result = await dispatcher.DispatchAsync<CreateUserCommand, Guid>(command, cancellationToken);

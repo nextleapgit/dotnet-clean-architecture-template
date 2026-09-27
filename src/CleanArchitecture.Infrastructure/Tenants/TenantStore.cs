@@ -18,6 +18,9 @@ internal sealed class TenantStore(ApplicationDbContext dbContext) : ITenantStore
     public Task<bool> IsActiveAsync(TenantId tenantId, CancellationToken cancellationToken) =>
         dbContext.Tenants.AnyAsync(t => t.Id == tenantId && t.IsActive, cancellationToken);
 
+    public Task<bool> IsPlatformAsync(TenantId tenantId, CancellationToken cancellationToken) =>
+        dbContext.Tenants.AnyAsync(t => t.Id == tenantId && t.IsPlatform, cancellationToken);
+
     public Task<TenantResponse?> GetResponseAsync(TenantId tenantId, CancellationToken cancellationToken) =>
         ToResponse(dbContext.Tenants.Where(t => t.Id == tenantId)).SingleOrDefaultAsync(cancellationToken);
 

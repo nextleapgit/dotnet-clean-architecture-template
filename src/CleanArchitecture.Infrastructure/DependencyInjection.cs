@@ -1,5 +1,6 @@
 using System.Text;
 using CleanArchitecture.Application.Abstractions.Authentication;
+using CleanArchitecture.Application.Abstractions.Links;
 using CleanArchitecture.Application.Tenants;
 using CleanArchitecture.Application.Todos;
 using CleanArchitecture.Application.Users;
@@ -12,6 +13,7 @@ using CleanArchitecture.Infrastructure.Authorization;
 using CleanArchitecture.Infrastructure.Database;
 using CleanArchitecture.Infrastructure.DomainEvents;
 using CleanArchitecture.Infrastructure.Email;
+using CleanArchitecture.Infrastructure.Links;
 using CleanArchitecture.Infrastructure.Tenancy;
 using CleanArchitecture.Infrastructure.Tenants;
 using CleanArchitecture.Infrastructure.Time;
@@ -38,6 +40,7 @@ public static class DependencyInjection
         IConfiguration configuration) =>
         services
             .AddServices()
+            .AddClientLinks(configuration)
             .AddDatabase(configuration)
             .AddHealthChecks(configuration)
             .AddAuthenticationInternal(configuration)
@@ -61,6 +64,18 @@ public static class DependencyInjection
         return services;
     }
 
+    private static IServiceCollection AddClientLinks(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<ClientAppOptions>()
+            .Bind(configuration.GetSection(ClientAppOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        services.AddSingleton<IClientLinks, ClientLinks>();
+
+        return services;
+    }
+
     private static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
     {
         string? connectionString = configuration.GetConnectionString("Database");
@@ -75,6 +90,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantStore, TenantStore>();
         services.AddScoped<IUserStore, UserStore>();
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
+        services.AddScoped<IUserTokenStore, UserTokenStore>();
         services.AddScoped<ITodoItemStore, TodoItemStore>();
 
         return services;

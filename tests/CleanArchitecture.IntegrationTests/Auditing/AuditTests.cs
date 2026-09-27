@@ -37,6 +37,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
         List<AuditEntry> entries = await EntriesForUserAsync(userId);
         entries.Select(e => e.Action).ShouldBe(
         [
+            UserAuditActions.InvitationAccepted,
             UserAuditActions.LoginFailed,
             UserAuditActions.LoginSucceeded
         ]);
@@ -48,7 +49,7 @@ public sealed class AuditTests(IntegrationTestWebAppFactory factory) : BaseInteg
         created.UserId.ShouldNotBe(userId);
         created.TenantId.ShouldBe(entries[0].TenantId);
 
-        AuditEntry failed = entries[0];
+        AuditEntry failed = entries[1];
         failed.Severity.ShouldBe(AuditSeverity.Warning);
         failed.CorrelationId.ShouldBe("audit-test-correlation");
         failed.UserAgent.ShouldBe("IntegrationTests/1.0");

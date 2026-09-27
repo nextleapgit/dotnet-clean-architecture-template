@@ -20,6 +20,7 @@
 - Presenting a token that was already **rotated** means it leaked: the whole family is revoked and a `Critical` audit entry is written. A token revoked by logout or by an earlier family revocation is simply rejected — no alarm.
 - Two concurrent rotations of the same token cannot both succeed (PostgreSQL `xmin` concurrency token → 409).
 - `POST /api/v1/users/logout` (authenticated) revokes the session family of a token that belongs to the caller.
+- **Cleanup**: `TokenCleanupWorker` (on by default, hourly) deletes tokens that can never be used again, after `TokenCleanup:RetentionDays` (30). Refresh tokens are deleted by whole family, and only once every token in the family is revoked or expired — a rotated token stays while its family lives, because replaying it is how a leak is detected. Emailed tokens are deleted once used, superseded, or expired. Audit entries are never deleted.
 - Deactivating a user, or resetting their password, revokes all of their sessions; changing the password revokes all but the current one. Refreshing fails for a deactivated user or tenant.
 
 ## Tenancy

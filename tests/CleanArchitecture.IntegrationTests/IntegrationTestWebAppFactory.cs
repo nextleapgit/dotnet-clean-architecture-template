@@ -44,8 +44,9 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         builder.UseSetting("RateLimiting:Global:PermitLimit", "100000");
         builder.UseSetting("RateLimiting:Authentication:PermitLimit", "100000");
 
-        // Outbox tests drive the dispatcher directly; the worker runs only where a test enables it.
+        // Tests drive the outbox dispatcher and the token cleanup directly; the workers run only where a test enables them.
         builder.UseSetting("EmailOutbox:Enabled", "false");
+        builder.UseSetting("TokenCleanup:Enabled", "false");
     }
 
     /// <summary>Signs the admin in once per test run; the token outlives the suite.</summary>

@@ -30,6 +30,11 @@ internal sealed class ChangePasswordCommandHandler(
             return Result.Failure(UserErrors.NotFound(tenantContext.CurrentUserId));
         }
 
+        // As for sign-in: concurrent attempts run one after another, so every failure is counted.
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        await userStore.LockForUpdateAsync(user, cancellationToken);
+
         DateTime utcNow = dateTimeProvider.UtcNow;
 
         if (user.IsLockedOut(utcNow))
@@ -46,6 +51,7 @@ internal sealed class ChangePasswordCommandHandler(
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             return Result.Failure(UserErrors.InvalidCurrentPassword);
         }
@@ -74,8 +80,6 @@ internal sealed class ChangePasswordCommandHandler(
                 ["revokedSessions"] = otherSessions.Count.ToString(CultureInfo.InvariantCulture)
             }
         });
-
-        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

@@ -15,6 +15,13 @@ public interface IUserStore
     /// </summary>
     Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Inside a transaction: waits for and holds the user's row lock until the transaction ends,
+    /// then refreshes the tracked user. Serializes concurrent sign-in attempts so none of them
+    /// loses a failed-attempt count.
+    /// </summary>
+    Task LockForUpdateAsync(User user, CancellationToken cancellationToken);
+
     /// <summary>A tracked user of the tenant, for use cases that change it.</summary>
     Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
 

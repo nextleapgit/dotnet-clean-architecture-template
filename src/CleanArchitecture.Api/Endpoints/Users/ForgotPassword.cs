@@ -8,6 +8,10 @@ namespace CleanArchitecture.Api.Endpoints.Users;
 
 internal sealed class ForgotPassword : IEndpoint
 {
+    // Well above the slowest normal path (a transaction, a token, an encrypted email), so a registered
+    // email answers no slower than an unknown one.
+    private static readonly TimeSpan MinimumResponseTime = TimeSpan.FromSeconds(1);
+
     public sealed record Request(string Email);
 
     public void MapEndpoint(IEndpointRouteBuilder app)
@@ -23,6 +27,7 @@ internal sealed class ForgotPassword : IEndpoint
         })
         .WithTags(Tags.Users)
         .AllowAnonymous()
-        .RequireRateLimiting(RateLimitingPolicies.Authentication);
+        .RequireRateLimiting(RateLimitingPolicies.Authentication)
+        .WithMinimumResponseTime(MinimumResponseTime);
     }
 }

@@ -15,6 +15,8 @@ public sealed class InMemoryUserStore : IUserStore
     public Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         Task.FromResult(Users.SingleOrDefault(u => u.Email == normalizedEmail));
 
+    public Task LockForUpdateAsync(User user, CancellationToken cancellationToken) => Task.CompletedTask;
+
     public Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         Task.FromResult(Users.SingleOrDefault(u => u.TenantId == tenantId && u.Id == userId));
 

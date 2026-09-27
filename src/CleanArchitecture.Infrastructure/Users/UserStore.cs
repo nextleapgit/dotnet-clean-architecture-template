@@ -15,6 +15,16 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
     public Task<User?> FindByEmailAsync(string normalizedEmail, CancellationToken cancellationToken) =>
         dbContext.Users.SingleOrDefaultAsync(u => u.Email == normalizedEmail, cancellationToken);
 
+    public async Task LockForUpdateAsync(User user, CancellationToken cancellationToken)
+    {
+        await dbContext.Database.ExecuteSqlRawAsync(
+            "SELECT 1 FROM " + Schemas.Default + ".users WHERE id = {0} FOR UPDATE",
+            [user.Id],
+            cancellationToken);
+
+        await dbContext.Entry(user).ReloadAsync(cancellationToken);
+    }
+
     public Task<User?> FindAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
         InTenant(tenantId).SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
 

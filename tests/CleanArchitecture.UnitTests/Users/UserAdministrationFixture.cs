@@ -16,7 +16,10 @@ public sealed class UserAdministrationFixture
 
     public UserAdministrationFixture()
     {
-        Platform = AddTenant("Platform");
+        UserTokens = new InMemoryUserTokenStore(Users);
+        EmailOutbox = new RecordingEmailOutbox(UnitOfWork);
+
+        Platform = AddTenant("Platform", isPlatform: true);
         Tenant = AddTenant("Acme");
         OtherTenant = AddTenant("Globex");
         Admin = AddUser(Platform, Role.Admin);
@@ -31,7 +34,15 @@ public sealed class UserAdministrationFixture
 
     public InMemoryRefreshTokenStore RefreshTokens { get; } = new();
 
+    public InMemoryUserTokenStore UserTokens { get; }
+
     public RecordingAuditLog AuditLog { get; } = new();
+
+    public RecordingEmailOutbox EmailOutbox { get; }
+
+    public FakeTokenProvider TokenProvider { get; } = new();
+
+    public FakeClientLinks ClientLinks { get; } = new();
 
     public Tenant Platform { get; }
 
@@ -43,9 +54,9 @@ public sealed class UserAdministrationFixture
 
     public User Manager { get; }
 
-    public Tenant AddTenant(string name)
+    public Tenant AddTenant(string name, bool isPlatform = false)
     {
-        Tenant tenant = TestData.NewTenant(name);
+        Tenant tenant = TestData.NewTenant(name, isPlatform);
         Tenants.Add(tenant);
 
         return tenant;
@@ -59,9 +70,21 @@ public sealed class UserAdministrationFixture
         return user;
     }
 
-    public FakeTenantContext ContextOf(User actor) => new(actor.TenantId, actor.Id);
+    public FakeTenantContext ContextOf(User actor, Guid? sessionId = null) => new(actor.TenantId, actor.Id, sessionId);
 
     internal TenantAccess TenantAccessFor(User actor) => new(ContextOf(actor), Users, Tenants);
 
-    internal UserManagement UserManagementFor(User actor) => new(TenantAccessFor(actor), Users, ContextOf(actor));
+    internal UserManagement UserManagementFor(User actor) =>
+        new(TenantAccessFor(actor), Users, Tenants, ContextOf(actor));
+
+    internal UserTokenIssuer TokenIssuer() => new(UserTokens, TokenProvider, TestData.Clock());
+
+    /// <summary>Issues a token as the application would and returns the raw value that would be emailed.</summary>
+    internal string IssueToken(User user, UserTokenPurpose purpose, TimeSpan? lifetime = null)
+    {
+        string raw = $"raw-{Guid.NewGuid():N}";
+        UserTokens.Add(UserToken.Issue(user.Id, purpose, TokenProvider.HashOpaqueToken(raw), TestData.UtcNow, lifetime ?? TimeSpan.FromHours(1)));
+
+        return raw;
+    }
 }

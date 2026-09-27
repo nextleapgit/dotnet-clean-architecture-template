@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,7 +16,7 @@ internal sealed class TokenProvider(IOptions<JwtOptions> jwtOptions, IDateTimePr
 {
     private readonly JsonWebTokenHandler _tokenHandler = new();
 
-    public string CreateAccessToken(User user)
+    public string CreateAccessToken(User user, Guid sessionId)
     {
         JwtOptions options = jwtOptions.Value;
 
@@ -28,7 +29,8 @@ internal sealed class TokenProvider(IOptions<JwtOptions> jwtOptions, IDateTimePr
             [
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
-                new Claim(CustomClaimNames.TenantId, user.TenantId.ToString())
+                new Claim(CustomClaimNames.TenantId, user.TenantId.ToString()),
+                new Claim(CustomClaimNames.SessionId, sessionId.ToString())
             ]),
             Expires = dateTimeProvider.UtcNow.AddMinutes(options.ExpirationInMinutes),
             SigningCredentials = credentials,
@@ -39,9 +41,10 @@ internal sealed class TokenProvider(IOptions<JwtOptions> jwtOptions, IDateTimePr
         return _tokenHandler.CreateToken(tokenDescriptor);
     }
 
-    public string GenerateRefreshToken() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+    // URL-safe, so the same tokens can travel in emailed links.
+    public string GenerateOpaqueToken() => Base64Url.EncodeToString(RandomNumberGenerator.GetBytes(32));
 
     // The token has 256 bits of entropy, so an unsalted SHA-256 is sufficient and allows lookups.
-    public string HashRefreshToken(string refreshToken) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(refreshToken)));
+    public string HashOpaqueToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

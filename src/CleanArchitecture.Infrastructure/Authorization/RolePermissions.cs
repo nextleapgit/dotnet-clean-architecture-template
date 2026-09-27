@@ -12,6 +12,7 @@ internal static class RolePermissions
     private static readonly string[] Member =
     [
         Permissions.ProfileRead,
+        Permissions.ProfileWrite,
         Permissions.TodosRead,
         Permissions.TodosWrite,
         Permissions.SessionsManage

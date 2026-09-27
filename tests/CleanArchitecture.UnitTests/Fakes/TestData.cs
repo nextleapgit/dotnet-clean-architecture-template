@@ -17,9 +17,9 @@ public static class TestData
         return dateTimeProvider;
     }
 
-    public static Tenant NewTenant(string name = "Acme")
+    public static Tenant NewTenant(string name = "Acme", bool isPlatform = false)
     {
-        var tenant = Tenant.Create(name, UtcNow);
+        Tenant tenant = isPlatform ? Tenant.CreatePlatform(name, UtcNow) : Tenant.Create(name, UtcNow);
         tenant.ClearDomainEvents();
 
         return tenant;

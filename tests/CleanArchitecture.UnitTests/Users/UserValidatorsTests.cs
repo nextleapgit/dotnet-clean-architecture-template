@@ -4,6 +4,8 @@ using CleanArchitecture.Application.Users.Bootstrap;
 using CleanArchitecture.Application.Users.ChangeRole;
 using CleanArchitecture.Application.Users.Create;
 using CleanArchitecture.Application.Users.Get;
+using CleanArchitecture.Application.Users.Invitations;
+using CleanArchitecture.Application.Users.Passwords;
 using CleanArchitecture.Application.Users.Login;
 using CleanArchitecture.Application.Users.Logout;
 using CleanArchitecture.Application.Users.Refresh;
@@ -28,7 +30,7 @@ public sealed class UserValidatorsTests
     private readonly GetTenantsQueryValidator _getTenantsValidator = new();
 
     private static CreateUserCommand ValidCreate(Role role = Role.Member) =>
-        new(null, "test@example.com", "Test", "User", "Password123", role);
+        new(null, "test@example.com", "Test", "User", role);
 
     [Theory]
     [InlineData("")]
@@ -48,20 +50,14 @@ public sealed class UserValidatorsTests
     }
 
     [Fact]
-    public void CreateValidator_Should_HaveError_WhenPasswordIsTooShort() =>
-        _createValidator.TestValidate(ValidCreate() with { Password = "short" })
-            .ShouldHaveValidationErrorFor(c => c.Password);
-
-    [Theory]
-    [InlineData(Role.Admin)]
-    [InlineData((Role)42)]
-    public void CreateValidator_Should_HaveError_WhenRoleIsNotAssignable(Role role) =>
-        _createValidator.TestValidate(ValidCreate(role))
+    public void CreateValidator_Should_HaveError_WhenRoleIsUnknown() =>
+        _createValidator.TestValidate(ValidCreate((Role)42))
             .ShouldHaveValidationErrorFor(c => c.Role);
 
     [Theory]
     [InlineData(Role.Member)]
     [InlineData(Role.Manager)]
+    [InlineData(Role.Admin)] // allowed by validation; UserManagement decides who may assign it
     public void CreateValidator_Should_NotHaveErrors_WhenCommandIsValid(Role role) =>
         _createValidator.TestValidate(ValidCreate(role)).ShouldNotHaveAnyValidationErrors();
 
@@ -77,9 +73,27 @@ public sealed class UserValidatorsTests
     }
 
     [Fact]
-    public void ChangeRoleValidator_Should_HaveError_WhenRoleIsAdmin() =>
-        _changeRoleValidator.TestValidate(new ChangeUserRoleCommand(null, Guid.NewGuid(), Role.Admin))
+    public void ChangeRoleValidator_Should_HaveError_WhenRoleIsUnknown() =>
+        _changeRoleValidator.TestValidate(new ChangeUserRoleCommand(null, Guid.NewGuid(), (Role)42))
             .ShouldHaveValidationErrorFor(c => c.Role);
+
+    [Fact]
+    public void PasswordValidators_Should_RejectWeakOrMissingValues()
+    {
+        TestValidationResult<AcceptInvitationCommand> accept =
+            new AcceptInvitationCommandValidator().TestValidate(new AcceptInvitationCommand(string.Empty, "short"));
+        accept.ShouldHaveValidationErrorFor(c => c.Token);
+        accept.ShouldHaveValidationErrorFor(c => c.Password);
+        new ResetPasswordCommandValidator().TestValidate(new ResetPasswordCommand("token", new string('a', 129)))
+            .ShouldHaveValidationErrorFor(c => c.NewPassword);
+        new ForgotPasswordCommandValidator().TestValidate(new ForgotPasswordCommand("not-an-email"))
+            .ShouldHaveValidationErrorFor(c => c.Email);
+    }
+
+    [Fact]
+    public void ChangePasswordValidator_Should_RejectReusingTheCurrentPassword() =>
+        new ChangePasswordCommandValidator().TestValidate(new ChangePasswordCommand("Password123", "Password123"))
+            .ShouldHaveValidationErrorFor(c => c.NewPassword);
 
     [Fact]
     public void BootstrapValidator_Should_HaveErrors_WhenFieldsAreMissing()

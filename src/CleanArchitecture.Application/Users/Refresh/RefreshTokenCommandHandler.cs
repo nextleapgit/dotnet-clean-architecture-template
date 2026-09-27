@@ -21,7 +21,7 @@ internal sealed class RefreshTokenCommandHandler(
         CancellationToken cancellationToken)
     {
         RefreshToken? refreshToken = await refreshTokenStore.FindByHashAsync(
-            tokenProvider.HashRefreshToken(command.RefreshToken),
+            tokenProvider.HashOpaqueToken(command.RefreshToken),
             cancellationToken);
 
         if (refreshToken is null)
@@ -50,10 +50,10 @@ internal sealed class RefreshTokenCommandHandler(
             return Result.Failure<AccessTokensResponse>(UserErrors.AccountDisabled);
         }
 
-        string newRefreshToken = tokenProvider.GenerateRefreshToken();
+        string newRefreshToken = tokenProvider.GenerateOpaqueToken();
 
         RefreshToken successor = refreshToken.Rotate(
-            tokenProvider.HashRefreshToken(newRefreshToken),
+            tokenProvider.HashOpaqueToken(newRefreshToken),
             utcNow,
             RefreshTokenPolicy.Lifetime);
 
@@ -67,7 +67,7 @@ internal sealed class RefreshTokenCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new AccessTokensResponse(tokenProvider.CreateAccessToken(refreshToken.User), newRefreshToken);
+        return new AccessTokensResponse(tokenProvider.CreateAccessToken(refreshToken.User, successor.FamilyId), newRefreshToken);
     }
 
     // A rotated token can only be presented again if it leaked: end every session in its family.

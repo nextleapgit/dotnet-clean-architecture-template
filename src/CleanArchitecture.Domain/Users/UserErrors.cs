@@ -29,13 +29,29 @@ public static class UserErrors
         "Users.AccountDisabled",
         "The account or its tenant has been deactivated.");
 
+    public static readonly Error LockedOut = Error.Forbidden(
+        "Users.LockedOut",
+        "Too many failed sign-in attempts. Try again later or reset your password.");
+
+    public static readonly Error InvalidCurrentPassword = Error.Problem(
+        "Users.InvalidCurrentPassword",
+        "The current password is incorrect.");
+
+    public static readonly Error InvalidOrExpiredToken = Error.Problem(
+        "Users.InvalidOrExpiredToken",
+        "The link is invalid, has already been used, or has expired.");
+
+    public static readonly Error InvitationAlreadyAccepted = Error.Problem(
+        "Users.InvitationAlreadyAccepted",
+        "The user has already accepted the invitation.");
+
     public static readonly Error AdminRoleNotAssignable = Error.Problem(
         "Users.AdminRoleNotAssignable",
-        "The Admin role cannot be assigned.");
+        "The Admin role can be assigned only by an admin, and only to users of the platform tenant.");
 
     public static readonly Error AdminNotManageable = Error.Forbidden(
         "Users.AdminNotManageable",
-        "Admin accounts cannot be managed through user management.");
+        "Only admins can manage admin accounts.");
 
     public static readonly Error CannotChangeOwnAccess = Error.Problem(
         "Users.CannotChangeOwnAccess",

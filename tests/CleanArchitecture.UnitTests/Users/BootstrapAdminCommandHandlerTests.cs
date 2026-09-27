@@ -30,6 +30,7 @@ public sealed class BootstrapAdminCommandHandlerTests
         result.IsSuccess.ShouldBeTrue();
         Tenant tenant = _tenantStore.Tenants.ShouldHaveSingleItem();
         tenant.Name.ShouldBe("Platform");
+        tenant.IsPlatform.ShouldBeTrue();
         User admin = _userStore.Users.ShouldHaveSingleItem();
         admin.Role.ShouldBe(Role.Admin);
         admin.Email.ShouldBe("admin@example.com");

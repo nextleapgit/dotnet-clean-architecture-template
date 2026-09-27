@@ -26,14 +26,22 @@ internal sealed class ChangeUserRoleCommandHandler(
         }
 
         User user = found.Value;
+
+        if (user.Role == command.Role)
+        {
+            return Result.Success();
+        }
+
+        Result assignable = await userManagement.EnsureRoleAssignableAsync(command.Role, user.TenantId, cancellationToken);
+
+        if (assignable.IsFailure)
+        {
+            return assignable;
+        }
+
         Role previousRole = user.Role;
 
-        Result result = user.ChangeRole(command.Role);
-
-        if (result.IsFailure || previousRole == user.Role)
-        {
-            return result;
-        }
+        user.ChangeRole(command.Role);
 
         auditLog.Record(new AuditRecord(UserAuditActions.RoleChanged, nameof(User), user.Id.ToString(), AuditSeverity.Warning)
         {

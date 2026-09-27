@@ -17,7 +17,7 @@ public sealed class UserCreationRaceTests(IntegrationTestWebAppFactory factory) 
         Guid tenantId = await CreateTenantAsync();
         using HttpClient first = await CreateAdminClientAsync();
         using HttpClient second = await CreateAdminClientAsync();
-        var request = new { email = UniqueEmail(), firstName = "Test", lastName = "User", password = Password, role = Role.Member };
+        var request = new { email = UniqueEmail(), firstName = "Test", lastName = "User", role = Role.Member };
 
         // Act
         HttpResponseMessage[] responses = await Task.WhenAll(

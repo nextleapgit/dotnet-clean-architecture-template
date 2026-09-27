@@ -27,4 +27,12 @@ internal static class ClaimsPrincipalExtensions
 
         return true;
     }
+
+    public static bool TryGetSessionId([NotNullWhen(true)] this ClaimsPrincipal? principal, out Guid sessionId)
+    {
+        sessionId = Guid.Empty;
+
+        return principal is not null &&
+               Guid.TryParse(principal.FindFirstValue(CustomClaimNames.SessionId), out sessionId);
+    }
 }

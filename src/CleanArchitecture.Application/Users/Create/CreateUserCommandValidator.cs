@@ -9,7 +9,6 @@ internal sealed class CreateUserCommandValidator : AbstractValidator<CreateUserC
         RuleFor(c => c.Email).ValidEmail();
         RuleFor(c => c.FirstName).ValidName();
         RuleFor(c => c.LastName).ValidName();
-        RuleFor(c => c.Password).ValidPassword();
-        RuleFor(c => c.Role).AssignableRole();
+        RuleFor(c => c.Role).KnownRole();
     }
 }

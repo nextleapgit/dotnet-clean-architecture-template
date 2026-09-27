@@ -18,6 +18,9 @@ public sealed class InMemoryTenantStore : ITenantStore
     public Task<bool> IsActiveAsync(TenantId tenantId, CancellationToken cancellationToken) =>
         Task.FromResult(Tenants.Exists(t => t.Id == tenantId && t.IsActive));
 
+    public Task<bool> IsPlatformAsync(TenantId tenantId, CancellationToken cancellationToken) =>
+        Task.FromResult(Tenants.Exists(t => t.Id == tenantId && t.IsPlatform));
+
     public Task<TenantResponse?> GetResponseAsync(TenantId tenantId, CancellationToken cancellationToken) =>
         Task.FromResult(Tenants.Where(t => t.Id == tenantId).Select(ToResponse).SingleOrDefault());
 

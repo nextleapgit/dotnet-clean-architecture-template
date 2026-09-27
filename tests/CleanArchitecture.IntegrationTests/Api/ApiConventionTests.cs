@@ -55,7 +55,15 @@ public sealed class ApiConventionTests(IntegrationTestWebAppFactory factory) : B
         ApplicationEndpoints()
             .Where(endpoint => endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)
             .Select(Route)
-            .ShouldBe(["api/v1/users/login", "api/v1/users/refresh-token"], ignoreOrder: true);
+            .ShouldBe(
+                [
+                    "api/v1/users/login",
+                    "api/v1/users/refresh-token",
+                    "api/v1/users/invitations/accept",
+                    "api/v1/users/password/forgot",
+                    "api/v1/users/password/reset"
+                ],
+                ignoreOrder: true);
 
     [Fact]
     public async Task OpenApiDocument_Should_DescribeBearerAuthAndVersionedRoutes()

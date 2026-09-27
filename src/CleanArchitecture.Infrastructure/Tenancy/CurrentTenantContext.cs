@@ -20,5 +20,7 @@ internal sealed class CurrentTenantContext(IHttpContextAccessor httpContextAcces
     public Guid CurrentUserId =>
         Principal.TryGetUserId(out Guid userId) ? userId : throw new TenantContextUnavailableException();
 
+    public Guid? CurrentSessionId => Principal.TryGetSessionId(out Guid sessionId) ? sessionId : null;
+
     public IReadOnlyCollection<TenantId> AccessibleTenantIds => IsAvailable ? [CurrentTenantId] : [];
 }

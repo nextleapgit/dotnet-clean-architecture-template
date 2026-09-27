@@ -38,6 +38,8 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         builder.UseSetting("Bootstrap:Admin:Email", AdminEmail);
         builder.UseSetting("Bootstrap:Admin:Password", AdminPassword);
 
+        builder.UseSetting("ClientApp:BaseUrl", "https://app.integration.test");
+
         // Relax rate limiting so the test suite is not throttled.
         builder.UseSetting("RateLimiting:Global:PermitLimit", "100000");
         builder.UseSetting("RateLimiting:Authentication:PermitLimit", "100000");

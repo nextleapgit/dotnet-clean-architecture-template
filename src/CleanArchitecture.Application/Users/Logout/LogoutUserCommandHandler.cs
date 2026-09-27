@@ -19,7 +19,7 @@ internal sealed class LogoutUserCommandHandler(
     public async Task<Result> HandleAsync(LogoutUserCommand command, CancellationToken cancellationToken)
     {
         RefreshToken? refreshToken = await refreshTokenStore.FindByHashAsync(
-            tokenProvider.HashRefreshToken(command.RefreshToken),
+            tokenProvider.HashOpaqueToken(command.RefreshToken),
             cancellationToken);
 
         // Another user's token is reported exactly like an unknown one.

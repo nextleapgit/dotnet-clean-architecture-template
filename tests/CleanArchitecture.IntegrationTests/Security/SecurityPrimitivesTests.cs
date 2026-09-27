@@ -49,12 +49,15 @@ public sealed class SecurityPrimitivesTests
     {
         var user = User.Create(TenantId.New(), "user@example.com", "Test", "User", "hash", Role.Member);
 
-        string token = CreateTokenProvider().CreateAccessToken(user);
+        var sessionId = Guid.NewGuid();
+
+        string token = CreateTokenProvider().CreateAccessToken(user, sessionId);
         JsonWebToken jwt = new JsonWebTokenHandler().ReadJsonWebToken(token);
 
         jwt.Subject.ShouldBe(user.Id.ToString());
         jwt.GetClaim("tenant_id").Value.ShouldBe(user.TenantId.ToString());
         jwt.GetClaim("email").Value.ShouldBe("user@example.com");
+        jwt.GetClaim("session_id").Value.ShouldBe(sessionId.ToString());
         jwt.Issuer.ShouldBe("issuer");
         jwt.ValidTo.ShouldBe(FixedNow.AddMinutes(15));
     }
@@ -64,14 +67,15 @@ public sealed class SecurityPrimitivesTests
     {
         TokenProvider provider = CreateTokenProvider();
 
-        string first = provider.GenerateRefreshToken();
-        string second = provider.GenerateRefreshToken();
+        string first = provider.GenerateOpaqueToken();
+        string second = provider.GenerateOpaqueToken();
 
         first.ShouldNotBe(second);
-        Convert.FromBase64String(first).Length.ShouldBe(32);
-        provider.HashRefreshToken(first).ShouldBe(provider.HashRefreshToken(first));
-        provider.HashRefreshToken(first).Length.ShouldBe(RefreshToken.TokenHashLength);
-        provider.HashRefreshToken(first).ShouldNotContain(first);
+        System.Buffers.Text.Base64Url.DecodeFromChars(first).Length.ShouldBe(32);
+        Uri.EscapeDataString(first).ShouldBe(first); // URL-safe, so it can travel in emailed links
+        provider.HashOpaqueToken(first).ShouldBe(provider.HashOpaqueToken(first));
+        provider.HashOpaqueToken(first).Length.ShouldBe(RefreshToken.TokenHashLength);
+        provider.HashOpaqueToken(first).ShouldNotContain(first);
     }
 
     [Fact]

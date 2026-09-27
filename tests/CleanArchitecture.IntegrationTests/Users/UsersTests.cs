@@ -22,7 +22,7 @@ public sealed class UsersTests(IntegrationTestWebAppFactory factory) : BaseInteg
         // Act
         HttpResponseMessage response = await HttpClient.PostAsJsonAsync(
             "users",
-            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", password = Password, role = Role.Member },
+            new { email = email.ToUpperInvariant(), firstName = "Test", lastName = "User", role = Role.Member },
             CancellationToken);
 
         // Assert

@@ -32,7 +32,7 @@ internal sealed class BootstrapAdminCommandHandler(
             return Result.Failure(UserErrors.EmailNotUnique);
         }
 
-        var tenant = Tenant.Create(command.TenantName, dateTimeProvider.UtcNow);
+        var tenant = Tenant.CreatePlatform(command.TenantName, dateTimeProvider.UtcNow);
 
         var admin = User.Create(
             tenant.Id,

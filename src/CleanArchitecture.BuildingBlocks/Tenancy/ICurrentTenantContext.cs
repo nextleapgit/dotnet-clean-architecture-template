@@ -18,6 +18,12 @@ public interface ICurrentTenantContext
     Guid CurrentUserId { get; }
 
     /// <summary>
+    /// The session (refresh-token family) the access token was issued for, so a use case can end
+    /// every session but the current one. Null when unavailable.
+    /// </summary>
+    Guid? CurrentSessionId { get; }
+
+    /// <summary>
     /// Tenants the current request may read. The template grants only the current tenant;
     /// extend the resolver when a tenant hierarchy is introduced.
     /// </summary>

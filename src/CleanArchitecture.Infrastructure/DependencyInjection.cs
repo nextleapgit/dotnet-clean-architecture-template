@@ -46,7 +46,8 @@ public static class DependencyInjection
             .AddAuthenticationInternal(configuration)
             .AddAuthorizationInternal()
             .AddEmailOutbox(configuration)
-            .AddEmailOutboxWorker();
+            .AddEmailOutboxWorker()
+            .AddTokenCleanup(configuration);
 
     private static IServiceCollection AddServices(this IServiceCollection services)
     {
@@ -72,6 +73,19 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<IClientLinks, ClientLinks>();
+
+        return services;
+    }
+
+    private static IServiceCollection AddTokenCleanup(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<TokenCleanupOptions>()
+            .Bind(configuration.GetSection(TokenCleanupOptions.SectionName))
+            .ValidateOnStart();
+        services.AddSingleton<IValidateOptions<TokenCleanupOptions>, TokenCleanupOptionsValidator>();
+
+        services.AddScoped<TokenCleanupStore>();
+        services.AddHostedService<TokenCleanupWorker>();
 
         return services;
     }

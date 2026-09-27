@@ -9,6 +9,8 @@ public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) :
 {
     private sealed record UserDto(Guid Id, Guid TenantId, string Email);
 
+    private sealed record UserPageDto(List<UserDto> Items, int TotalCount);
+
     [Fact]
     public async Task OtherTenant_Should_NotReadOrModifyTodos()
     {
@@ -51,6 +53,23 @@ public sealed class TenantIsolationTests(IntegrationTestWebAppFactory factory) :
 
         // Assert
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UserList_Should_NotIncludeOtherTenantsUsers()
+    {
+        // Arrange
+        Account owner = await RegisterAndLoginAsync();
+        Account intruder = await RegisterAndLoginAsync();
+        Authenticate(intruder.Tokens.AccessToken);
+
+        // Act
+        UserPageDto? page = await HttpClient.GetFromJsonAsync<UserPageDto>("users?pageSize=100", CancellationToken);
+
+        // Assert
+        page!.Items.ShouldNotContain(u => u.Id == owner.UserId);
+        page.Items.ShouldAllBe(u => u.Id == intruder.UserId);
+        page.TotalCount.ShouldBe(1);
     }
 
     [Fact]

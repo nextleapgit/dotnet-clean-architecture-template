@@ -1,3 +1,4 @@
+using CleanArchitecture.Application.Abstractions.Paging;
 using CleanArchitecture.Application.Users;
 using CleanArchitecture.Domain.Users;
 using CleanArchitecture.Infrastructure.Database;
@@ -18,17 +19,45 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
         dbContext.Users.AnyAsync(u => u.TenantId == tenantId && u.Id == userId, cancellationToken);
 
     public Task<UserResponse?> GetResponseAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
-        dbContext.Users
-            .Where(u => u.TenantId == tenantId && u.Id == userId)
-            .Select(u => new UserResponse
-            {
-                Id = u.Id,
-                TenantId = u.TenantId.Value,
-                Email = u.Email,
-                FirstName = u.FirstName,
-                LastName = u.LastName
-            })
-            .SingleOrDefaultAsync(cancellationToken);
+        ToResponse(InTenant(tenantId).Where(u => u.Id == userId)).SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<PagedResponse<UserResponse>> ListResponsesAsync(
+        TenantId tenantId,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<User> users = InTenant(tenantId);
+
+        int totalCount = await users.CountAsync(cancellationToken);
+        List<UserResponse> items = await ToResponse(users
+                .OrderBy(u => u.Email)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize))
+            .ToListAsync(cancellationToken);
+
+        return new PagedResponse<UserResponse>
+        {
+            Items = items,
+            Page = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+    }
 
     public void Add(User user) => dbContext.Users.Add(user);
+
+    // The single place that scopes users for listing and management reads.
+    private IQueryable<User> InTenant(TenantId tenantId) =>
+        dbContext.Users.Where(u => u.TenantId == tenantId);
+
+    private static IQueryable<UserResponse> ToResponse(IQueryable<User> users) =>
+        users.Select(u => new UserResponse
+        {
+            Id = u.Id,
+            TenantId = u.TenantId.Value,
+            Email = u.Email,
+            FirstName = u.FirstName,
+            LastName = u.LastName
+        });
 }

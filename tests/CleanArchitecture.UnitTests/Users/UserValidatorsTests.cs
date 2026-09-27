@@ -1,3 +1,4 @@
+using CleanArchitecture.Application.Users.Get;
 using CleanArchitecture.Application.Users.Login;
 using CleanArchitecture.Application.Users.Logout;
 using CleanArchitecture.Application.Users.Refresh;
@@ -13,6 +14,7 @@ public sealed class UserValidatorsTests
     private readonly LoginUserCommandValidator _loginValidator = new();
     private readonly RefreshTokenCommandValidator _refreshValidator = new();
     private readonly LogoutUserCommandValidator _logoutValidator = new();
+    private readonly GetUsersQueryValidator _getUsersValidator = new();
 
     [Theory]
     [InlineData("")]
@@ -59,4 +61,17 @@ public sealed class UserValidatorsTests
         _logoutValidator.TestValidate(new LogoutUserCommand(string.Empty))
             .ShouldHaveValidationErrorFor(c => c.RefreshToken);
     }
+
+    [Theory]
+    [InlineData(0, 20)]
+    [InlineData(1, 0)]
+    [InlineData(1, GetUsersQuery.MaxPageSize + 1)]
+    public void GetUsersValidator_Should_HaveError_WhenPagingIsOutOfRange(int page, int pageSize) =>
+        _getUsersValidator.TestValidate(new GetUsersQuery(page, pageSize))
+            .IsValid.ShouldBeFalse();
+
+    [Fact]
+    public void GetUsersValidator_Should_NotHaveErrors_WhenPagingIsValid() =>
+        _getUsersValidator.TestValidate(new GetUsersQuery(1, GetUsersQuery.MaxPageSize))
+            .ShouldNotHaveAnyValidationErrors();
 }

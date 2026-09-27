@@ -31,6 +31,14 @@ Correlation-Id: demo-login-1
 GET {{api}}/users/{{register.response.body.$}}
 Authorization: Bearer {{accessToken}}
 
+### 3a. My profile (taken from the token, not the request)
+GET {{api}}/users/me
+Authorization: Bearer {{accessToken}}
+
+### 3b. Users of my tenant (paged, ordered by email; pageSize 1-100)
+GET {{api}}/users?page=1&pageSize=20
+Authorization: Bearer {{accessToken}}
+
 ### 4. Create a todo
 # @name createTodo
 POST {{api}}/todos

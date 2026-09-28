@@ -13,11 +13,13 @@ internal sealed class Get : IEndpoint
     public void MapEndpoint(IEndpointRouteBuilder app)
     {
         app.MapGet("todos", async (
+            int? page,
+            int? pageSize,
             IQueryDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
             Result<List<TodoResponse>> result = await dispatcher.DispatchAsync<GetTodosQuery, List<TodoResponse>>(
-                new GetTodosQuery(),
+                new GetTodosQuery(page ?? 1, pageSize ?? 50),
                 cancellationToken);
 
             return result.Match(Results.Ok, CustomResults.Problem);

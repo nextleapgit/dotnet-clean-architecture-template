@@ -12,6 +12,9 @@ public static class DependencyInjection
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
 
+        services.Configure<Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerOptions>(options =>
+            options.Limits.MaxRequestBodySize = 64 * 1024);
+
         return services;
     }
 }

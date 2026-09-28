@@ -4,6 +4,9 @@ namespace CleanArchitecture.Application.Users;
 
 public interface IUserTokenStore
 {
+    /// <summary>Serializes credential changes on this user until the current transaction ends.</summary>
+    Task LockUserAsync(Guid userId, CancellationToken cancellationToken);
+
     /// <summary>Finds a token (usable or not) by its hash and purpose, including its user.</summary>
     Task<UserToken?> FindByHashAsync(string tokenHash, UserTokenPurpose purpose, CancellationToken cancellationToken);
 

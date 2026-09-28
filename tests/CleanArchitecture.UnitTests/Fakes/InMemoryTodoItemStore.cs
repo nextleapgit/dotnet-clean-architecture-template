@@ -18,8 +18,9 @@ public sealed class InMemoryTodoItemStore : ITodoItemStore
         CancellationToken cancellationToken) =>
         Task.FromResult(Owned(tenantId, userId).Where(t => t.Id == todoItemId).Select(ToResponse).SingleOrDefault());
 
-    public Task<List<TodoResponse>> ListResponsesAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken) =>
-        Task.FromResult(Owned(tenantId, userId).Select(ToResponse).ToList());
+    public Task<List<TodoResponse>> ListResponsesAsync(TenantId tenantId, Guid userId, int page, int pageSize, CancellationToken cancellationToken) =>
+        Task.FromResult(Owned(tenantId, userId).OrderBy(t => t.CreatedAt).ThenBy(t => t.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).Select(ToResponse).ToList());
 
     public void Add(TodoItem todoItem) => Items.Add(todoItem);
 

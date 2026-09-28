@@ -1,4 +1,6 @@
 using CleanArchitecture.Infrastructure.Authentication;
+using CleanArchitecture.SharedKernel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +14,9 @@ internal sealed class PermissionAuthorizationHandler(IServiceScopeFactory servic
         PermissionRequirement requirement)
     {
         // Unauthenticated requests never satisfy a permission; the middleware answers with 401.
-        if (context.User is not { Identity.IsAuthenticated: true } || !context.User.TryGetUserId(out Guid userId))
+        if (context.User is not { Identity.IsAuthenticated: true }
+            || !context.User.TryGetUserId(out Guid userId)
+            || !context.User.TryGetTenantId(out TenantId tenantId))
         {
             return;
         }
@@ -21,7 +25,8 @@ internal sealed class PermissionAuthorizationHandler(IServiceScopeFactory servic
 
         PermissionProvider permissionProvider = scope.ServiceProvider.GetRequiredService<PermissionProvider>();
 
-        IReadOnlySet<string> permissions = await permissionProvider.GetForUserIdAsync(userId);
+        CancellationToken cancellationToken = (context.Resource as HttpContext)?.RequestAborted ?? default;
+        IReadOnlySet<string> permissions = await permissionProvider.GetForUserIdAsync(userId, tenantId, cancellationToken);
 
         if (permissions.Contains(requirement.Permission))
         {

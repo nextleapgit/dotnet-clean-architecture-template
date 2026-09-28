@@ -339,7 +339,34 @@ public sealed class EmailOutboxTests(IntegrationTestWebAppFactory factory) : Bas
                 .CheckHealthAsync(new HealthCheckContext(), CancellationToken));
 
         enabled.Status.ShouldBe(HealthStatus.Degraded);
-        disabled.Status.ShouldBe(HealthStatus.Healthy);
+        disabled.Status.ShouldBe(HealthStatus.Degraded);
+    }
+
+    [Fact]
+    public async Task HealthCheck_Should_DetectExpiredLeases_EvenWithWorkerDisabled()
+    {
+        EmailMessage message = await EnqueueOwnedAsync();
+        await ExecuteAsync("UPDATE " + Table +
+            " SET status = 1, lease_id = {1}, lease_expires_at_utc = now() - interval '20 minutes' WHERE id = {0}",
+            message.Id, Guid.NewGuid());
+        HealthCheckResult result = await WithDbContextAsync(db =>
+            new EmailOutboxHealthCheck(new EmailOutboxStore(db), Options.Create(new EmailOutboxOptions()))
+                .CheckHealthAsync(new HealthCheckContext(), CancellationToken));
+        result.Status.ShouldBe(HealthStatus.Degraded);
+    }
+
+    [Theory]
+    [InlineData(3)]
+    [InlineData(4)]
+    public async Task HealthCheck_Should_DetectRecentTerminalFailures(int status)
+    {
+        EmailMessage message = await EnqueueOwnedAsync();
+        await ExecuteAsync("UPDATE " + Table + " SET status = {1}, payload = NULL, processed_at_utc = now() WHERE id = {0}",
+            message.Id, status);
+        HealthCheckResult result = await WithDbContextAsync(db =>
+            new EmailOutboxHealthCheck(new EmailOutboxStore(db), Options.Create(new EmailOutboxOptions()))
+                .CheckHealthAsync(new HealthCheckContext(), CancellationToken));
+        result.Status.ShouldBe(HealthStatus.Degraded);
     }
 
     [Fact]

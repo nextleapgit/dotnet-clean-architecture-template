@@ -5,6 +5,8 @@ namespace CleanArchitecture.Domain.Todos;
 public sealed class TodoItem : Entity
 {
     public const int DescriptionMaxLength = 500;
+    public const int MaxLabels = 20;
+    public const int LabelMaxLength = 100;
 
     private TodoItem()
     {

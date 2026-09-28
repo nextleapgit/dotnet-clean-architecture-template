@@ -18,6 +18,20 @@ internal static class RateLimitingExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
+                {
+                    context.HttpContext.Response.Headers.RetryAfter = Math.Ceiling(retryAfter.TotalSeconds)
+                        .ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+                await Results.Problem(statusCode: StatusCodes.Status429TooManyRequests,
+                    title: "Too many requests", extensions: new Dictionary<string, object?>
+                    {
+                        ["code"] = "General.RateLimitExceeded",
+                        ["correlationId"] = context.HttpContext.TraceIdentifier
+                    }).ExecuteAsync(context.HttpContext);
+            };
 
             // A global fixed-window limiter, partitioned by authenticated user or client IP.
             options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>

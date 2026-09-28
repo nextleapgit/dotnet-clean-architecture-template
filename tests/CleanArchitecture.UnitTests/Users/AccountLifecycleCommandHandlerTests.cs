@@ -109,7 +109,7 @@ public sealed class AccountLifecycleCommandHandlerTests
     // ------------------------------------------------------------ resend invitation
 
     private ResendInvitationCommandHandler ResendHandler(User actor) => new(
-        _fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.TokenIssuer(), _fixture.ClientLinks, _fixture.AuditLog, _fixture.EmailOutbox);
+        _fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.TokenIssuer(), _fixture.ClientLinks, _fixture.AuditLog, _fixture.EmailOutbox, _fixture.Users);
 
     [Fact]
     public async Task ResendInvitation_Should_SupersedeThePreviousLink()
@@ -141,7 +141,7 @@ public sealed class AccountLifecycleCommandHandlerTests
 
     private ChangePasswordCommandHandler ChangeHandler(User actor, Guid? sessionId) => new(
         _fixture.UnitOfWork, _fixture.Users, _fixture.RefreshTokens, _passwordHasher, _fixture.ContextOf(actor, sessionId),
-        TestData.Clock(), _fixture.AuditLog, _fixture.EmailOutbox);
+        TestData.Clock(), _fixture.AuditLog, _fixture.EmailOutbox, _fixture.TokenIssuer());
 
     [Fact]
     public async Task ChangePassword_Should_KeepTheCurrentSessionAndRevokeTheOthers()

@@ -19,6 +19,7 @@ internal sealed class AcceptInvitationCommandHandler(
 {
     public async Task<Result> HandleAsync(AcceptInvitationCommand command, CancellationToken cancellationToken)
     {
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         UserToken? invitation = await userTokenIssuer.FindUsableAsync(
             command.Token,
             UserTokenPurpose.Invitation,
@@ -45,6 +46,7 @@ internal sealed class AcceptInvitationCommandHandler(
         });
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

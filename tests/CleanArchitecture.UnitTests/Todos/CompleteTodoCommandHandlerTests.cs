@@ -13,8 +13,7 @@ public sealed class CompleteTodoCommandHandlerTests
         _fixture.UnitOfWork,
         _fixture.Store,
         _fixture.TenantContext,
-        TestData.Clock(),
-        Caches.Create());
+        TestData.Clock());
 
     [Fact]
     public async Task Handle_Should_ReturnNotFound_WhenTodoDoesNotExist()

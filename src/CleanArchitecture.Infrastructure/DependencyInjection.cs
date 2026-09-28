@@ -26,6 +26,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -37,7 +38,8 @@ public static class DependencyInjection
 
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration) =>
+        IConfiguration configuration,
+        IHostEnvironment environment) =>
         services
             .AddServices()
             .AddClientLinks(configuration)
@@ -45,7 +47,7 @@ public static class DependencyInjection
             .AddHealthChecks(configuration)
             .AddAuthenticationInternal(configuration)
             .AddAuthorizationInternal()
-            .AddEmailOutbox(configuration)
+            .AddEmailOutbox(configuration, environment)
             .AddEmailOutboxWorker()
             .AddTokenCleanup(configuration);
 
@@ -56,7 +58,6 @@ public static class DependencyInjection
 
         services.AddTransient<IDomainEventsDispatcher, DomainEventsDispatcher>();
 
-        services.AddHybridCache();
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentTenantContext, CurrentTenantContext>();
@@ -142,6 +143,23 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.Zero
                 });
 
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure(bearerOptions => bearerOptions.Events = new JwtBearerEvents
+            {
+                // A token of an ended session is not a valid credential: fail authentication (401).
+                OnTokenValidated = async context =>
+                {
+                    if (!context.Principal.TryGetUserId(out Guid userId)
+                        || !context.Principal.TryGetSessionId(out Guid sessionId)
+                        || !await context.HttpContext.RequestServices.GetRequiredService<SessionValidator>()
+                            .IsActiveAsync(userId, sessionId, context.HttpContext.RequestAborted))
+                    {
+                        context.Fail("The session has ended.");
+                    }
+                }
+            });
+
+        services.AddScoped<SessionValidator>();
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ITokenProvider, TokenProvider>();
 

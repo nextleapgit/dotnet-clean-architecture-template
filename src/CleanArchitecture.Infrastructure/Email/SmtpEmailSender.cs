@@ -69,6 +69,7 @@ internal sealed class SmtpEmailSender(IOptions<SmtpOptions> smtpOptions) : IEmai
         {
             SmtpSecurityMode.StartTls => SecureSocketOptions.StartTls,
             SmtpSecurityMode.SslOnConnect => SecureSocketOptions.SslOnConnect,
-            _ => SecureSocketOptions.None
+            SmtpSecurityMode.None => SecureSocketOptions.None,
+            _ => throw new InvalidOperationException("Unknown SMTP security mode.")
         };
 }

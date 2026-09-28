@@ -20,12 +20,8 @@ internal sealed class UserTokenIssuer(
         CancellationToken cancellationToken,
         string? payload = null)
     {
+        await InvalidateAsync(userId, purpose, cancellationToken);
         DateTime utcNow = dateTimeProvider.UtcNow;
-
-        foreach (UserToken previous in await userTokenStore.GetUsableAsync(userId, purpose, utcNow, cancellationToken))
-        {
-            previous.Consume(utcNow);
-        }
 
         string token = tokenProvider.GenerateOpaqueToken();
         var userToken = UserToken.Issue(userId, purpose, tokenProvider.HashOpaqueToken(token), utcNow, lifetime, payload);
@@ -33,6 +29,16 @@ internal sealed class UserTokenIssuer(
         userTokenStore.Add(userToken);
 
         return new IssuedUserToken(token, userToken.ExpiresAtUtc);
+    }
+
+    public async Task InvalidateAsync(Guid userId, UserTokenPurpose purpose, CancellationToken cancellationToken)
+    {
+        await userTokenStore.LockUserAsync(userId, cancellationToken);
+        DateTime utcNow = dateTimeProvider.UtcNow;
+        foreach (UserToken previous in await userTokenStore.GetUsableAsync(userId, purpose, utcNow, cancellationToken))
+        {
+            previous.Consume(utcNow);
+        }
     }
 
     /// <summary>The token with its user, or null when it is unknown, used, superseded, or expired.</summary>

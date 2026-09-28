@@ -6,7 +6,7 @@ internal sealed class GetTenantsQueryValidator : AbstractValidator<GetTenantsQue
 {
     public GetTenantsQueryValidator()
     {
-        RuleFor(q => q.Page).GreaterThanOrEqualTo(1);
+        RuleFor(q => q.Page).InclusiveBetween(1, 10000);
         RuleFor(q => q.PageSize).InclusiveBetween(1, GetTenantsQuery.MaxPageSize);
     }
 }

@@ -20,6 +20,7 @@ internal sealed class RefreshTokenCommandHandler(
         RefreshTokenCommand command,
         CancellationToken cancellationToken)
     {
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         RefreshToken? refreshToken = await refreshTokenStore.FindByHashAsync(
             tokenProvider.HashOpaqueToken(command.RefreshToken),
             cancellationToken);
@@ -34,6 +35,7 @@ internal sealed class RefreshTokenCommandHandler(
         if (refreshToken.WasRotated)
         {
             await RevokeFamilyAfterReuseAsync(refreshToken, utcNow, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
 
             return Result.Failure<AccessTokensResponse>(UserErrors.InvalidRefreshToken);
         }
@@ -66,6 +68,8 @@ internal sealed class RefreshTokenCommandHandler(
         });
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
 
         return new AccessTokensResponse(tokenProvider.CreateAccessToken(refreshToken.User, successor.FamilyId), newRefreshToken);
     }

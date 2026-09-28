@@ -11,5 +11,7 @@ internal sealed class GetTodosQueryHandler(ITodoItemStore todoItemStore, ICurren
         await todoItemStore.ListResponsesAsync(
             tenantContext.CurrentTenantId,
             tenantContext.CurrentUserId,
+            query.Page,
+            query.PageSize,
             cancellationToken);
 }

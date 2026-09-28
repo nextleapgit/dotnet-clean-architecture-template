@@ -6,6 +6,6 @@ internal sealed class LogoutUserCommandValidator : AbstractValidator<LogoutUserC
 {
     public LogoutUserCommandValidator()
     {
-        RuleFor(c => c.RefreshToken).NotEmpty();
+        RuleFor(c => c.RefreshToken).NotEmpty().MaximumLength(128);
     }
 }

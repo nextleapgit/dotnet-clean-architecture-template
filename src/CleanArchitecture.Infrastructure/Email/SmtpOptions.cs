@@ -36,6 +36,11 @@ internal sealed class SmtpOptionsValidator(IConfiguration configuration, IHostEn
     {
         List<string> failures = [];
 
+        if (!Enum.IsDefined(options.SecurityMode))
+        {
+            failures.Add("Smtp:SecurityMode must be a known value.");
+        }
+
         if (options.Port is < 1 or > 65535)
         {
             failures.Add("Smtp:Port must be between 1 and 65535.");

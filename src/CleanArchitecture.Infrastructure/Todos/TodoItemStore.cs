@@ -25,8 +25,11 @@ internal sealed class TodoItemStore(ApplicationDbContext dbContext) : ITodoItemS
     public Task<List<TodoResponse>> ListResponsesAsync(
         TenantId tenantId,
         Guid userId,
+        int page,
+        int pageSize,
         CancellationToken cancellationToken) =>
-        ToResponse(Owned(tenantId, userId).OrderBy(t => t.CreatedAt)).ToListAsync(cancellationToken);
+        ToResponse(Owned(tenantId, userId).OrderBy(t => t.CreatedAt).ThenBy(t => t.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)).ToListAsync(cancellationToken);
 
     public void Add(TodoItem todoItem) => dbContext.TodoItems.Add(todoItem);
 

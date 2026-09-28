@@ -31,7 +31,7 @@ await transaction.CommitAsync(ct);
 
 Check constraints enforce valid statuses, non-negative attempts, payload presence only while active, completion time only when terminal, and lease presence only while Processing. Partial indexes serve due-pending scheduling, expired-lease recovery, expiry, and cleanup.
 
-Payloads are protected with ASP.NET Core Data Protection. The protection purpose is bound to the id and the expiry, so moving a payload or extending its expiry makes it unreadable. Keys are stored in the database (`data_protection_keys`) so every instance shares one key ring. In production, also encrypt the key ring at rest — for example `ProtectKeysWithCertificate(...)` or a cloud key vault — otherwise anyone who can read the database can read queued emails.
+Payloads are protected with ASP.NET Core Data Protection. The protection purpose is bound to the id and the expiry, so moving a payload or extending its expiry makes it unreadable. Keys are stored in the database (`data_protection_keys`) so every instance shares one key ring. Keys are encrypted with an RSA certificate whose private key stays outside PostgreSQL. Startup also wraps legacy plaintext keys without changing their IDs. Production requires certificate configuration; see [upgrade notes](security-hardening.md).
 
 ## Worker
 
@@ -49,7 +49,7 @@ Payloads are protected with ASP.NET Core Data Protection. The protection purpose
 
 ## Health
 
-The `email-outbox` check reports **Degraded** when a sendable email has waited longer than `HealthBacklogThresholdSeconds` (stopped worker, stuck lease, or failing SMTP), and Healthy when the worker is deliberately disabled. It is part of `/health` but not `/health/ready`: an email backlog must not take an instance out of rotation.
+The `email-outbox` check reports **Degraded** when pending work or an expired lease has waited longer than `HealthBacklogThresholdSeconds`, including expired or exhausted pending messages. It also reports failed or expired deliveries in the last 24 hours. The check remains active when this instance's worker is disabled because the queue is shared. It is part of `/health` but not `/health/ready`: an email backlog must not take an instance out of rotation. Monitor the health status in the response; Degraded may still have HTTP status 200.
 
 ## Delivery semantics
 

@@ -3,15 +3,13 @@ using CleanArchitecture.BuildingBlocks.Persistence;
 using CleanArchitecture.BuildingBlocks.Tenancy;
 using CleanArchitecture.Domain.Todos;
 using CleanArchitecture.SharedKernel;
-using Microsoft.Extensions.Caching.Hybrid;
 
 namespace CleanArchitecture.Application.Todos.Update;
 
 internal sealed class UpdateTodoCommandHandler(
     IUnitOfWork unitOfWork,
     ITodoItemStore todoItemStore,
-    ICurrentTenantContext tenantContext,
-    HybridCache cache)
+    ICurrentTenantContext tenantContext)
     : ICommandHandler<UpdateTodoCommand>
 {
     public async Task<Result> HandleAsync(UpdateTodoCommand command, CancellationToken cancellationToken)
@@ -31,7 +29,6 @@ internal sealed class UpdateTodoCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        await cache.RemoveAsync(TodoCacheKeys.ById(todoItem.TenantId, todoItem.UserId, todoItem.Id), cancellationToken);
 
         return Result.Success();
     }

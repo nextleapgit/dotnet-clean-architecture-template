@@ -21,6 +21,14 @@ internal sealed class EmailOutboxOptions
     public int RetentionDays { get; init; } = 14;
     public int CleanupIntervalMinutes { get; init; } = 60;
     public int HealthBacklogThresholdSeconds { get; init; } = 600;
+
+    /// <summary>
+    /// Failed or expired emails within <see cref="HealthFailureWindowMinutes"/> that degrade health.
+    /// A single failure (one bad address) is not an outage; a run of them is.
+    /// </summary>
+    public int HealthFailureThreshold { get; init; } = 5;
+
+    public int HealthFailureWindowMinutes { get; init; } = 60;
 }
 
 internal sealed class EmailOutboxOptionsValidator(IOptions<SmtpOptions> smtpOptions)
@@ -53,6 +61,8 @@ internal sealed class EmailOutboxOptionsValidator(IOptions<SmtpOptions> smtpOpti
         Require(options.RetentionDays > 0, "EmailOutbox:RetentionDays must be positive.");
         Require(options.CleanupIntervalMinutes > 0, "EmailOutbox:CleanupIntervalMinutes must be positive.");
         Require(options.HealthBacklogThresholdSeconds > 0, "EmailOutbox:HealthBacklogThresholdSeconds must be positive.");
+        Require(options.HealthFailureThreshold > 0, "EmailOutbox:HealthFailureThreshold must be positive.");
+        Require(options.HealthFailureWindowMinutes > 0, "EmailOutbox:HealthFailureWindowMinutes must be positive.");
 
         int minimumLease = smtpOptions.Value.TimeoutSeconds + options.CompletionTimeoutSeconds + LeaseHeadroomSeconds;
         Require(

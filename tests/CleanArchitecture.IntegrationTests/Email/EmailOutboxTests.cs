@@ -364,9 +364,43 @@ public sealed class EmailOutboxTests(IntegrationTestWebAppFactory factory) : Bas
         await ExecuteAsync("UPDATE " + Table + " SET status = {1}, payload = NULL, processed_at_utc = now() WHERE id = {0}",
             message.Id, status);
         HealthCheckResult result = await WithDbContextAsync(db =>
-            new EmailOutboxHealthCheck(new EmailOutboxStore(db), Options.Create(new EmailOutboxOptions()))
+            new EmailOutboxHealthCheck(new EmailOutboxStore(db), Options.Create(new EmailOutboxOptions { HealthFailureThreshold = 1 }))
                 .CheckHealthAsync(new HealthCheckContext(), CancellationToken));
         result.Status.ShouldBe(HealthStatus.Degraded);
+    }
+
+    // The outbox is shared with other tests, so these compare against a baseline count; the tests of
+    // this collection run one at a time, so nothing else changes the count in between.
+    [Fact]
+    public async Task HealthCheck_Should_StayHealthy_WhileRecentFailuresAreBelowTheThreshold()
+    {
+        long baseline = await WithDbContextAsync(db => new EmailOutboxStore(db).GetRecentDeliveryFailuresAsync(60, CancellationToken));
+        EmailMessage message = await EnqueueOwnedAsync();
+        await ExecuteAsync("UPDATE " + Table + " SET status = 3, payload = NULL, processed_at_utc = now() WHERE id = {0}", message.Id);
+
+        var options = new EmailOutboxOptions
+        {
+            HealthFailureThreshold = (int)baseline + 2,
+            HealthFailureWindowMinutes = 60,
+            HealthBacklogThresholdSeconds = int.MaxValue
+        };
+        HealthCheckResult result = await WithDbContextAsync(db =>
+            new EmailOutboxHealthCheck(new EmailOutboxStore(db), Options.Create(options))
+                .CheckHealthAsync(new HealthCheckContext(), CancellationToken));
+
+        result.Status.ShouldBe(HealthStatus.Healthy);
+    }
+
+    [Fact]
+    public async Task RecentDeliveryFailures_Should_IgnoreFailuresOutsideTheWindow()
+    {
+        long before = await WithDbContextAsync(db => new EmailOutboxStore(db).GetRecentDeliveryFailuresAsync(60, CancellationToken));
+        EmailMessage message = await EnqueueOwnedAsync();
+        await ExecuteAsync("UPDATE " + Table + " SET status = 4, payload = NULL, processed_at_utc = now() - interval '2 hours' WHERE id = {0}", message.Id);
+
+        long after = await WithDbContextAsync(db => new EmailOutboxStore(db).GetRecentDeliveryFailuresAsync(60, CancellationToken));
+
+        after.ShouldBe(before);
     }
 
     [Fact]

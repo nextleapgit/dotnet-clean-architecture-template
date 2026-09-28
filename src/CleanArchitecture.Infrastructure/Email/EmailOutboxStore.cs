@@ -67,7 +67,7 @@ internal sealed class EmailOutboxStore(ApplicationDbContext dbContext)
 
     private const string DeliveryFailuresSql =
         "SELECT count(*) AS \"Value\" FROM " + Table +
-        " WHERE status IN (3, 4) AND processed_at_utc > now() - interval '24 hours'";
+        " WHERE status IN (3, 4) AND processed_at_utc > now() - make_interval(mins => {0})";
 
     public async Task<ClaimedEmail?> ClaimNextAsync(
         Guid leaseId,
@@ -115,8 +115,9 @@ internal sealed class EmailOutboxStore(ApplicationDbContext dbContext)
     public async Task<double?> GetOldestPendingAgeSecondsAsync(CancellationToken cancellationToken) =>
         await dbContext.Database.SqlQueryRaw<double?>(BacklogSql).SingleAsync(cancellationToken);
 
-    public Task<long> GetRecentDeliveryFailuresAsync(CancellationToken cancellationToken) =>
-        dbContext.Database.SqlQueryRaw<long>(DeliveryFailuresSql).SingleAsync(cancellationToken);
+    /// <summary>Emails that failed or expired within the last <paramref name="windowMinutes"/>.</summary>
+    public Task<long> GetRecentDeliveryFailuresAsync(int windowMinutes, CancellationToken cancellationToken) =>
+        dbContext.Database.SqlQueryRaw<long>(DeliveryFailuresSql, windowMinutes).SingleAsync(cancellationToken);
 }
 
 internal sealed class ClaimedEmail

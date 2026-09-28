@@ -54,7 +54,7 @@ dotnet pack template-pack -o artifacts             # template package
 | `Bootstrap:Admin` | `TenantName`, `Email`, `FirstName`, `LastName`, `Password` — creates the platform tenant and first admin when none exists; skipped when absent. Development: `admin@cleanarchitecture.local` / `Admin123!` |
 | `RateLimiting` | `Global` and `Authentication` permit limits and windows |
 | `TokenCleanup` | `Enabled` (default true), `RetentionDays`, `IntervalMinutes`, `BatchSize` — validated at start-up |
-| `EmailOutbox` | `Enabled` (default false), polling, attempts, lease, retry, retention, health threshold — validated at start-up |
+| `EmailOutbox` | `Enabled` (default false), polling, attempts, lease, retry, retention, health thresholds (backlog age; failures per window) — validated at start-up |
 | `Smtp` | Host, port, `SecurityMode` (TLS required outside Development), sender, optional credentials, timeout |
 
 ## Project skills

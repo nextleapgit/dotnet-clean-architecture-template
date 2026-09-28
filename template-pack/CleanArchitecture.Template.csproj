@@ -21,9 +21,23 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="..\**\*"
-             Exclude="..\.git\**;..\.vs\**;..\.containers\**;..\obj\**;..\**\bin\**;..\**\obj\**;..\**\TestResults\**;..\**\*.user;..\template-pack\**"
-             PackagePath="content\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="..\src\**\*.cs;..\src\**\*.csproj;..\src\**\appsettings.json;..\src\**\appsettings.Development.json;..\src\**\launchSettings.json;..\src\**\*.http"
+             Exclude="..\src\**\bin\**;..\src\**\obj\**;..\src\**\.containers\**"
+             PackagePath="content\src\%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- NuGet treats a PackagePath without an extension as a folder, so an extensionless file such as a
+         Dockerfile takes its folder as the PackagePath; otherwise it lands at Dockerfile/Dockerfile. -->
+    <Content Include="..\src\CleanArchitecture.Api\Dockerfile" PackagePath="content\src\CleanArchitecture.Api\" />
+    <Content Include="..\tests\**\*.cs;..\tests\**\*.csproj"
+             Exclude="..\tests\**\bin\**;..\tests\**\obj\**"
+             PackagePath="content\tests\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="..\.claude\**\*.md" PackagePath="content\.claude\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="..\.github\**\*.yml" PackagePath="content\.github\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Content Include="..\.template.config\template.json" PackagePath="content\.template.config\template.json" />
+    <Content Include="..\docs\architecture.md;..\docs\security.md;..\docs\email-outbox.md;..\docs\template.md;..\docs\security-hardening.md"
+             PackagePath="content\docs\%(Filename)%(Extension)" />
+    <Content Include="..\scripts\*.ps1" PackagePath="content\scripts\%(Filename)%(Extension)" />
+    <Content Include="..\CleanArchitecture.slnx;..\Directory.Build.props;..\Directory.Packages.props;..\global.json;..\dotnet-tools.json;..\launchSettings.json;..\docker-compose.yml;..\docker-compose.override.yml;..\docker-compose.dcproj;..\.editorconfig;..\.gitattributes;..\.gitignore;..\.dockerignore;..\README.md;..\CLAUDE.md"
+             PackagePath="content\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -10,7 +10,7 @@ The base for our backend services: a layered Clean Architecture Web API with mul
 | CQRS | Own `ICommand`/`IQuery` abstractions, `ICommandDispatcher`/`IQueryDispatcher`, validation + logging decorators (no MediatR) |
 | Errors | `Result`/`Error` everywhere; RFC 9457 problem details with a stable `code` and the request `correlationId` |
 | Persistence | EF Core + PostgreSQL behind store interfaces and `IUnitOfWork`; EF Core never leaves Infrastructure |
-| Tenancy | Platform admins create tenants and invite their users; `ICurrentTenantContext` per request; tenant-scoped stores and cache keys |
+| Tenancy | Platform admins create tenants and invite their users; `ICurrentTenantContext` per request; tenant-scoped stores and immediate session revocation |
 | Security | Email invitations (no admin-set passwords), forgot/reset/change password, account lockout, roles (Member, Manager, Admin) checked per request, user/tenant deactivation, JWT access tokens, hashed rotating refresh tokens with reuse detection, logout, per-route permissions, rate limiting |
 | Audit | Append-only audit trail (enforced by a database trigger) for authentication and security events |
 | Email | Transactional outbox: encrypted payloads, `SKIP LOCKED` leases, retries with jitter, MailKit SMTP, health check |

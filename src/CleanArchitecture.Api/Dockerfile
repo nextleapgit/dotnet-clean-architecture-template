@@ -35,4 +35,7 @@ RUN dotnet publish "./CleanArchitecture.Api.csproj" -c $BUILD_CONFIGURATION -o /
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+USER root
+RUN mkdir -p /app/.containers/data-protection && chown -R $APP_UID /app/.containers
+USER $APP_UID
 ENTRYPOINT ["dotnet", "CleanArchitecture.Api.dll"]

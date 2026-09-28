@@ -34,6 +34,12 @@ internal sealed class ForgotPasswordCommandHandler(
 
         await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
+        await userStore.LockForUpdateAsync(user, cancellationToken);
+        if (!user.HasPassword || !user.IsActive || !await tenantStore.IsActiveAsync(user.TenantId, cancellationToken))
+        {
+            return Result.Success();
+        }
+
         // Issuing supersedes any earlier reset link.
         IssuedUserToken reset = await userTokenIssuer.IssueAsync(
             user.Id,

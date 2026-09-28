@@ -164,7 +164,7 @@ Step "manager creates a member, lists the tenant's users, and deactivates the me
     $member = (Invoke-Api POST "$api/users/login" @{ email = $memberEmail; password = $password }).Body | ConvertFrom-Json
     Assert-Status (Invoke-Api GET "$api/users" -token $member.accessToken) 403
     Assert-Status (Invoke-Api PUT "$api/users/$memberId/deactivate" -token $state.Access) 204
-    Assert-Status (Invoke-Api GET "$api/users/me" -token $member.accessToken) 403
+    Assert-Status (Invoke-Api GET "$api/users/me" -token $member.accessToken) 401
     Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $memberEmail; password = $password }) 403
 }
 

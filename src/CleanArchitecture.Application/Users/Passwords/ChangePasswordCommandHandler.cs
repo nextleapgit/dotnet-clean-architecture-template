@@ -18,7 +18,8 @@ internal sealed class ChangePasswordCommandHandler(
     ICurrentTenantContext tenantContext,
     IDateTimeProvider dateTimeProvider,
     IAuditLog auditLog,
-    IEmailOutbox emailOutbox)
+    IEmailOutbox emailOutbox,
+    UserTokenIssuer userTokenIssuer)
     : ICommandHandler<ChangePasswordCommand>
 {
     public async Task<Result> HandleAsync(ChangePasswordCommand command, CancellationToken cancellationToken)
@@ -63,6 +64,7 @@ internal sealed class ChangePasswordCommandHandler(
             return notice;
         }
 
+        await userTokenIssuer.InvalidateAsync(user.Id, UserTokenPurpose.PasswordReset, cancellationToken);
         user.SetPassword(passwordHasher.Hash(command.NewPassword));
 
         IReadOnlyList<RefreshToken> sessions = await refreshTokenStore.GetActiveForUserAsync(user.Id, utcNow, cancellationToken);

@@ -14,7 +14,8 @@ internal sealed class ResendInvitationCommandHandler(
     UserTokenIssuer userTokenIssuer,
     IClientLinks clientLinks,
     IAuditLog auditLog,
-    IEmailOutbox emailOutbox)
+    IEmailOutbox emailOutbox,
+    IUserStore userStore)
     : ICommandHandler<ResendInvitationCommand>
 {
     public async Task<Result> HandleAsync(ResendInvitationCommand command, CancellationToken cancellationToken)
@@ -32,12 +33,13 @@ internal sealed class ResendInvitationCommandHandler(
 
         User user = found.Value;
 
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await userStore.LockForUpdateAsync(user, cancellationToken);
+
         if (user.HasPassword)
         {
             return Result.Failure(UserErrors.InvitationAlreadyAccepted);
         }
-
-        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
 
         // Issuing supersedes the previous invitation link.
         IssuedUserToken invitation = await userTokenIssuer.IssueAsync(

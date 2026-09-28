@@ -17,7 +17,7 @@ public sealed class TodoQueryHandlerTests
         // Arrange
         TodoItem foreign = TestData.NewTodo(_fixture.OtherTenantId, _fixture.UserId);
         _fixture.Store.Add(foreign);
-        var handler = new GetTodoByIdQueryHandler(_fixture.Store, _fixture.TenantContext, Caches.Create());
+        var handler = new GetTodoByIdQueryHandler(_fixture.Store, _fixture.TenantContext);
 
         // Act
         Result<TodoResponse> result = await handler.HandleAsync(
@@ -34,7 +34,7 @@ public sealed class TodoQueryHandlerTests
         // Arrange
         TodoItem todoItem = TestData.NewTodo(_fixture.TenantId, _fixture.UserId);
         _fixture.Store.Add(todoItem);
-        var handler = new GetTodoByIdQueryHandler(_fixture.Store, _fixture.TenantContext, Caches.Create());
+        var handler = new GetTodoByIdQueryHandler(_fixture.Store, _fixture.TenantContext);
 
         // Act
         Result<TodoResponse> result = await handler.HandleAsync(

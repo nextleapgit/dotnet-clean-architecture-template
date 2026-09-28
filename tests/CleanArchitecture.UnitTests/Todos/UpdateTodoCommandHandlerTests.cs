@@ -12,8 +12,7 @@ public sealed class UpdateTodoCommandHandlerTests
     private UpdateTodoCommandHandler Handler => new(
         _fixture.UnitOfWork,
         _fixture.Store,
-        _fixture.TenantContext,
-        Caches.Create());
+        _fixture.TenantContext);
 
     [Fact]
     public async Task Handle_Should_ReturnNotFound_WhenTodoDoesNotExist()

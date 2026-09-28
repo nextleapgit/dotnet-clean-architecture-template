@@ -22,6 +22,7 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
 
     private readonly SemaphoreSlim _adminTokenLock = new(1, 1);
     private string? _adminAccessToken;
+    private DateTime _adminTokenRenewAtUtc;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -49,20 +50,21 @@ public sealed class IntegrationTestWebAppFactory : WebApplicationFactory<Program
         builder.UseSetting("TokenCleanup:Enabled", "false");
     }
 
-    /// <summary>Signs the admin in once per test run; the token outlives the suite.</summary>
+    /// <summary>Reuses the admin token, renewing it before expiry during long test runs.</summary>
     public async Task<string> GetAdminAccessTokenAsync(CancellationToken cancellationToken)
     {
         await _adminTokenLock.WaitAsync(cancellationToken);
 
         try
         {
-            if (_adminAccessToken is null)
+            if (_adminAccessToken is null || DateTime.UtcNow >= _adminTokenRenewAtUtc)
             {
                 using HttpClient client = CreateClient();
                 client.BaseAddress = new Uri(client.BaseAddress!, "api/v1/");
 
                 _adminAccessToken = (await BaseIntegrationTest.LoginAsync(client, AdminEmail, AdminPassword, cancellationToken))
                     .AccessToken;
+                _adminTokenRenewAtUtc = DateTime.UtcNow.AddMinutes(30);
             }
 
             return _adminAccessToken;

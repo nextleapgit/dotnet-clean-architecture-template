@@ -16,12 +16,14 @@ internal sealed class EmailOutboxHealthCheck(EmailOutboxStore store, IOptions<Em
     {
         EmailOutboxOptions settings = options.Value;
 
-        if (!settings.Enabled)
+        long failures = await store.GetRecentDeliveryFailuresAsync(cancellationToken);
+        if (failures > 0)
         {
-            return HealthCheckResult.Healthy("The email outbox worker is disabled.");
+            return HealthCheckResult.Degraded("Email delivery failures occurred in the last 24 hours.",
+                data: new Dictionary<string, object> { ["failedOrExpired"] = failures });
         }
 
-        double? oldestPendingAge = await store.GetOldestPendingAgeSecondsAsync(settings.MaxAttempts, cancellationToken);
+        double? oldestPendingAge = await store.GetOldestPendingAgeSecondsAsync(cancellationToken);
 
         return oldestPendingAge > settings.HealthBacklogThresholdSeconds
             ? HealthCheckResult.Degraded(

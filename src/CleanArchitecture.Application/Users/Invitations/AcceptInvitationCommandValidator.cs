@@ -6,7 +6,7 @@ internal sealed class AcceptInvitationCommandValidator : AbstractValidator<Accep
 {
     public AcceptInvitationCommandValidator()
     {
-        RuleFor(c => c.Token).NotEmpty();
+        RuleFor(c => c.Token).NotEmpty().MaximumLength(128);
         RuleFor(c => c.Password).ValidPassword();
     }
 }

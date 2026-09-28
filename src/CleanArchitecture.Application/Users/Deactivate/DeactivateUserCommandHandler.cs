@@ -12,7 +12,8 @@ internal sealed class DeactivateUserCommandHandler(
     UserManagement userManagement,
     IRefreshTokenStore refreshTokenStore,
     IDateTimeProvider dateTimeProvider,
-    IAuditLog auditLog)
+    IAuditLog auditLog,
+    IUserStore userStore)
     : ICommandHandler<DeactivateUserCommand>
 {
     public async Task<Result> HandleAsync(DeactivateUserCommand command, CancellationToken cancellationToken)
@@ -29,6 +30,9 @@ internal sealed class DeactivateUserCommandHandler(
         }
 
         User user = found.Value;
+
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+        await userStore.LockForUpdateAsync(user, cancellationToken);
 
         if (!user.IsActive)
         {
@@ -57,6 +61,7 @@ internal sealed class DeactivateUserCommandHandler(
         });
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

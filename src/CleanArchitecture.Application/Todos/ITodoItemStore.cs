@@ -14,7 +14,7 @@ public interface ITodoItemStore
         Guid todoItemId,
         CancellationToken cancellationToken);
 
-    Task<List<TodoResponse>> ListResponsesAsync(TenantId tenantId, Guid userId, CancellationToken cancellationToken);
+    Task<List<TodoResponse>> ListResponsesAsync(TenantId tenantId, Guid userId, int page, int pageSize, CancellationToken cancellationToken);
 
     void Add(TodoItem todoItem);
 

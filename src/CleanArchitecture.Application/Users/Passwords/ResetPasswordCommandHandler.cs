@@ -21,6 +21,7 @@ internal sealed class ResetPasswordCommandHandler(
 {
     public async Task<Result> HandleAsync(ResetPasswordCommand command, CancellationToken cancellationToken)
     {
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         UserToken? reset = await userTokenIssuer.FindUsableAsync(command.Token, UserTokenPurpose.PasswordReset, cancellationToken);
 
         if (reset is null
@@ -35,7 +36,7 @@ internal sealed class ResetPasswordCommandHandler(
 
         // Also lifts a lockout: the user proved control of the mailbox.
         user.SetPassword(passwordHasher.Hash(command.NewPassword));
-        reset.Consume(utcNow);
+        await userTokenIssuer.InvalidateAsync(user.Id, UserTokenPurpose.PasswordReset, cancellationToken);
 
         IReadOnlyList<RefreshToken> sessions = await refreshTokenStore.GetActiveForUserAsync(user.Id, utcNow, cancellationToken);
 
@@ -55,6 +56,7 @@ internal sealed class ResetPasswordCommandHandler(
         });
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

@@ -36,6 +36,41 @@
   },
   "sources": [
     {
+      "include": [
+        "src/**/*.cs",
+        "src/**/*.csproj",
+        "src/**/appsettings.json",
+        "src/**/appsettings.Development.json",
+        "src/**/launchSettings.json",
+        "src/**/*.http",
+        "src/**/Dockerfile",
+        "tests/**/*.cs",
+        "tests/**/*.csproj",
+        ".claude/**/*.md",
+        ".github/workflows/*.yml",
+        ".github/dependabot.yml",
+        "docs/architecture.md",
+        "docs/security.md",
+        "docs/email-outbox.md",
+        "docs/template.md",
+        "docs/security-hardening.md",
+        "scripts/*.ps1",
+        "*.slnx",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "global.json",
+        "dotnet-tools.json",
+        "launchSettings.json",
+        "docker-compose.yml",
+        "docker-compose.override.yml",
+        "docker-compose.dcproj",
+        ".editorconfig",
+        ".gitattributes",
+        ".gitignore",
+        ".dockerignore",
+        "README.md",
+        "CLAUDE.md"
+      ],
       "modifiers": [
         {
           "exclude": [

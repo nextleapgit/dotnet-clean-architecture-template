@@ -6,7 +6,7 @@ internal sealed class ChangePasswordCommandValidator : AbstractValidator<ChangeP
 {
     public ChangePasswordCommandValidator()
     {
-        RuleFor(c => c.CurrentPassword).NotEmpty();
+        RuleFor(c => c.CurrentPassword).NotEmpty().MaximumLength(UserValidationRules.PasswordMaxLength);
         RuleFor(c => c.NewPassword).ValidPassword().NotEqual(c => c.CurrentPassword);
     }
 }

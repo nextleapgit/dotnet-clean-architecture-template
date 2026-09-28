@@ -21,7 +21,7 @@ Dependencies point one way: `Domain → SharedKernel`, `BuildingBlocks → Share
 ## Request flow
 
 ```
-HTTP → CorrelationIdMiddleware → exception handler → authentication → authorization (permission policy)
+HTTP → CorrelationIdMiddleware → exception handler → authentication → rate limiting → authorization (permission policy)
      → endpoint (map request) → ICommandDispatcher / IQueryDispatcher
      → LoggingDecorator → ValidationDecorator → handler
      → stores / IUnitOfWork / IAuditLog / IEmailOutbox → Result → problem details or 2xx

@@ -34,6 +34,7 @@ jobs:
 
       - name: Verify template
         run: |
+          pwsh -File scripts/test-template-package.ps1 -PackagePath artifacts/CleanArchitecture.Template.${GITHUB_REF_NAME#v}.nupkg
           dotnet new install artifacts/CleanArchitecture.Template.*.nupkg
           dotnet new ca-api --name Release.Check --output ../release-check
           dotnet build ../release-check/Release.Check.slnx --configuration Release

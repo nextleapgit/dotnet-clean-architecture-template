@@ -18,6 +18,7 @@ internal sealed class LogoutUserCommandHandler(
 {
     public async Task<Result> HandleAsync(LogoutUserCommand command, CancellationToken cancellationToken)
     {
+        await using IUnitOfWorkTransaction transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
         RefreshToken? refreshToken = await refreshTokenStore.FindByHashAsync(
             tokenProvider.HashOpaqueToken(command.RefreshToken),
             cancellationToken);
@@ -43,6 +44,7 @@ internal sealed class LogoutUserCommandHandler(
         auditLog.Record(new AuditRecord(UserAuditActions.LoggedOut, nameof(User), refreshToken.UserId.ToString()));
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

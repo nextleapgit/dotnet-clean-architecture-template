@@ -62,8 +62,12 @@ internal sealed class EmailOutboxStore(ApplicationDbContext dbContext)
 
     private const string BacklogSql =
         "SELECT EXTRACT(EPOCH FROM now() - min(next_attempt_at_utc))::double precision AS \"Value\" " +
-        "FROM " + Table + " WHERE status = 0 AND expires_at_utc > now() AND attempt_count < {0} " +
-        "AND next_attempt_at_utc <= now()";
+        "FROM " + Table + " WHERE (status = 0 AND next_attempt_at_utc <= now()) " +
+        "OR (status = 1 AND lease_expires_at_utc <= now())";
+
+    private const string DeliveryFailuresSql =
+        "SELECT count(*) AS \"Value\" FROM " + Table +
+        " WHERE status IN (3, 4) AND processed_at_utc > now() - interval '24 hours'";
 
     public async Task<ClaimedEmail?> ClaimNextAsync(
         Guid leaseId,
@@ -108,8 +112,11 @@ internal sealed class EmailOutboxStore(ApplicationDbContext dbContext)
         dbContext.Database.ExecuteSqlRawAsync(CleanupSql, [batchSize, retentionDays], cancellationToken);
 
     /// <summary>Seconds the oldest claimable pending message has been waiting, or null when none waits.</summary>
-    public async Task<double?> GetOldestPendingAgeSecondsAsync(int maxAttempts, CancellationToken cancellationToken) =>
-        await dbContext.Database.SqlQueryRaw<double?>(BacklogSql, maxAttempts).SingleAsync(cancellationToken);
+    public async Task<double?> GetOldestPendingAgeSecondsAsync(CancellationToken cancellationToken) =>
+        await dbContext.Database.SqlQueryRaw<double?>(BacklogSql).SingleAsync(cancellationToken);
+
+    public Task<long> GetRecentDeliveryFailuresAsync(CancellationToken cancellationToken) =>
+        dbContext.Database.SqlQueryRaw<long>(DeliveryFailuresSql).SingleAsync(cancellationToken);
 }
 
 internal sealed class ClaimedEmail

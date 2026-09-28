@@ -17,7 +17,7 @@ builder.Host.UseSerilog((context, loggerConfig) => loggerConfig.ReadFrom.Configu
 builder.Services
     .AddApplication()
     .AddPresentation()
-    .AddInfrastructure(builder.Configuration);
+    .AddInfrastructure(builder.Configuration, builder.Environment);
 
 builder.Services.AddObservability(builder.Configuration, builder.Environment.ApplicationName);
 
@@ -67,8 +67,8 @@ app.UseSerilogRequestLogging();
 
 app.UseAuthentication();
 
-app.UseAuthorization();
-
 app.UseRateLimiter();
+
+app.UseAuthorization();
 
 await app.RunAsync();

@@ -21,7 +21,7 @@ public sealed class UserManagementCommandHandlerTests
         new(_fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.AuditLog);
 
     private DeactivateUserCommandHandler DeactivateHandler(User actor) =>
-        new(_fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.RefreshTokens, TestData.Clock(), _fixture.AuditLog);
+        new(_fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.RefreshTokens, TestData.Clock(), _fixture.AuditLog, _fixture.Users);
 
     private ActivateUserCommandHandler ActivateHandler(User actor) =>
         new(_fixture.UnitOfWork, _fixture.UserManagementFor(actor), _fixture.AuditLog);

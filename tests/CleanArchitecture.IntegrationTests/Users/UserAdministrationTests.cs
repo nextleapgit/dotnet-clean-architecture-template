@@ -150,10 +150,11 @@ public sealed class UserAdministrationTests(IntegrationTestWebAppFactory factory
         // Act
         HttpResponseMessage deactivate = await HttpClient.PutAsync($"users/{member.UserId}/deactivate", null, CancellationToken);
 
-        // Assert: the still-valid access token is refused, and no new session can be obtained.
+        // Assert: deactivation ended the member's sessions, so the unexpired access token no longer
+        // authenticates (401), and no new session can be obtained.
         deactivate.StatusCode.ShouldBe(HttpStatusCode.NoContent);
-        (await memberClient.GetAsync("users/me", CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        (await TodoApiStatusAsync(memberClient)).ShouldBe(HttpStatusCode.Forbidden);
+        (await memberClient.GetAsync("users/me", CancellationToken)).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
+        (await TodoApiStatusAsync(memberClient)).ShouldBe(HttpStatusCode.Unauthorized);
         (await ProblemCodeAsync(await LoginResponseAsync(member.Email))).ShouldBe("Users.AccountDisabled");
         (await HttpClient.PostAsJsonAsync("users/refresh-token", new { refreshToken = member.Tokens.RefreshToken }, CancellationToken))
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);

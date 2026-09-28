@@ -30,9 +30,24 @@ jobs:
         run: dotnet pack template-pack --configuration Release --output artifacts
 
       - name: Create a project from the template
+        # Inspect the actual archive, not only the generated output.
         run: |
+          for package in artifacts/CleanArchitecture.Template.*.nupkg; do
+            pwsh -File scripts/test-template-package.ps1 -PackagePath "$package"
+          done
           dotnet new install artifacts/CleanArchitecture.Template.*.nupkg
           dotnet new ca-api --name Template.Check --output ../template-check
+
+      - name: Verify generated files
+        run: |
+          test ! -e ../template-check/nextleapoperations
+          test ! -e ../template-check/artifacts
+          test -f ../template-check/src/Template.Check.Api/Dockerfile
+
+      # Builds the image the way docker-compose.yml does, so a broken Dockerfile path or build fails here.
+      - name: Build the generated project's container image
+        working-directory: ../template-check
+        run: docker build --file src/Template.Check.Api/Dockerfile --tag template-check-api .
 
       - name: Build and test the generated project
         working-directory: ../template-check

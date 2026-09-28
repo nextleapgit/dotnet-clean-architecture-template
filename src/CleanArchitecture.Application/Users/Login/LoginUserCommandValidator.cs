@@ -6,7 +6,7 @@ internal sealed class LoginUserCommandValidator : AbstractValidator<LoginUserCom
 {
     public LoginUserCommandValidator()
     {
-        RuleFor(c => c.Email).NotEmpty().EmailAddress();
-        RuleFor(c => c.Password).NotEmpty();
+        RuleFor(c => c.Email).ValidEmail();
+        RuleFor(c => c.Password).NotEmpty().MaximumLength(UserValidationRules.PasswordMaxLength);
     }
 }

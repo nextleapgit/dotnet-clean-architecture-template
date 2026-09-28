@@ -80,10 +80,11 @@ public sealed class UserAdministrationFixture
     internal UserTokenIssuer TokenIssuer() => new(UserTokens, TokenProvider, TestData.Clock());
 
     /// <summary>Issues a token as the application would and returns the raw value that would be emailed.</summary>
-    internal string IssueToken(User user, UserTokenPurpose purpose, TimeSpan? lifetime = null)
+    internal string IssueToken(User user, UserTokenPurpose purpose, TimeSpan? lifetime = null, string? payload = null)
     {
         string raw = $"raw-{Guid.NewGuid():N}";
-        UserTokens.Add(UserToken.Issue(user.Id, purpose, TokenProvider.HashOpaqueToken(raw), TestData.UtcNow, lifetime ?? TimeSpan.FromHours(1)));
+        UserTokens.Add(UserToken.Issue(
+            user.Id, purpose, TokenProvider.HashOpaqueToken(raw), TestData.UtcNow, lifetime ?? TimeSpan.FromHours(1), payload));
 
         return raw;
     }

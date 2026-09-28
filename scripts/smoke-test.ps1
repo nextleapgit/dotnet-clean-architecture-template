@@ -237,6 +237,20 @@ Step "forgot password answers 202 for unknown emails too; the emailed link reset
     Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $email; password = "Reset12345" }) 200
 }
 
+Step "changing the email takes effect only once the link sent to the new address is opened" {
+    $oldEmail = "change-$email"
+    $newEmail = "changed-$email"
+    Assert-Status (Invoke-Api POST "$api/tenants/$($state.TenantId)/users" @{ email = $oldEmail; firstName = "Smoke"; lastName = "Change"; role = 0 } -token $state.Admin) 200
+    Complete-Invitation $oldEmail $password
+    $login = (Invoke-Api POST "$api/users/login" @{ email = $oldEmail; password = $password }).Body | ConvertFrom-Json
+    Assert-Status (Invoke-Api PUT "$api/users/me/email" @{ currentPassword = $password; newEmail = $newEmail } -token $login.accessToken) 202
+    $token = Get-EmailedToken $newEmail "Confirm your new email address"
+    Assert-Status (Invoke-Api POST "$api/users/email/confirm" @{ token = $token }) 204
+    Assert-Status (Invoke-Api GET "$api/users/me" -token $login.accessToken) 401
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $oldEmail; password = $password }) 401
+    Assert-Status (Invoke-Api POST "$api/users/login" @{ email = $newEmail; password = $password }) 200
+}
+
 Step "API reference (Scalar) is served" {
     Assert-Status (Invoke-Api GET "$BaseUrl/scalar") 200
 }

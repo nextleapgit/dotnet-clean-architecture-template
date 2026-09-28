@@ -27,6 +27,26 @@ internal static class UserEmails
             link,
             $"The link expires on {Format(expiresAtUtc)} UTC. If you did not ask for this, ignore this email.");
 
+    /// <summary>Sent to the new address: opening the link proves the user controls that mailbox.</summary>
+    public static Result<EmailMessage> EmailChangeConfirmation(User user, string newEmail, string link, DateTime expiresAtUtc) =>
+        Create(
+            newEmail,
+            "Confirm your new email address",
+            user.FirstName,
+            "Confirm that this is the new email address for your account:",
+            link,
+            $"The link expires on {Format(expiresAtUtc)} UTC. If you did not ask for this, ignore this email.");
+
+    /// <summary>Sent to the current address, so a change the owner did not ask for does not go unnoticed.</summary>
+    public static Result<EmailMessage> EmailChangeRequested(User user) =>
+        Create(
+            user.Email,
+            "Your email address is about to change",
+            user.FirstName,
+            "A change of the email address of your account was requested. It takes effect once the new address is confirmed.",
+            link: null,
+            "If this was not you, reset your password immediately and contact your administrator.");
+
     public static Result<EmailMessage> PasswordChanged(User user) =>
         Create(
             user.Email,

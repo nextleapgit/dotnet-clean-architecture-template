@@ -3,7 +3,7 @@
 # In Development the first admin is created at start-up from Bootstrap:Admin (appsettings.Development.json).
 # Roles in requests and responses are numbers: 0 = Member, 1 = Manager, 2 = Admin (platform tenant, by an admin only).
 # Users are invited: the invitation email (Mailpit: http://localhost:8025) holds a link ending in ?token=...;
-# paste that token into @invitationToken (and later @resetToken) before sending the request that uses it.
+# paste that token into @invitationToken (and later @resetToken, @emailChangeToken) before sending the request that uses it.
 
 @baseUrl = http://localhost:5000
 @api = {{baseUrl}}/api/v1
@@ -14,6 +14,8 @@
 @invitationToken = paste-the-token-from-the-invitation-email
 @memberInvitationToken = paste-the-token-from-the-member-invitation-email
 @resetToken = paste-the-token-from-the-reset-email
+@newEmail = manager.new@example.com
+@emailChangeToken = paste-the-token-from-the-email-sent-to-the-new-address
 
 ### Health (database readiness only)
 GET {{baseUrl}}/health/ready
@@ -191,7 +193,27 @@ Content-Type: application/json
 
 { "token": "{{resetToken}}", "newPassword": "{{password}}" }
 
-### 21. Admin: deactivate the tenant (all its users lose access at once), then activate it
+### 21. Sign in again (the reset ended every session)
+# @name relogin
+POST {{api}}/users/login
+Content-Type: application/json
+
+{ "email": "{{email}}", "password": "{{password}}" }
+
+### 22. Change my email → 202; nothing changes yet: a confirmation link goes to the new address (1 day), a notice to the current one
+PUT {{api}}/users/me/email
+Authorization: Bearer {{relogin.response.body.accessToken}}
+Content-Type: application/json
+
+{ "currentPassword": "{{password}}", "newEmail": "{{newEmail}}" }
+
+### 23. Confirm with the token from the email sent to the new address (anonymous; ends every session — sign in with the new address)
+POST {{api}}/users/email/confirm
+Content-Type: application/json
+
+{ "token": "{{emailChangeToken}}" }
+
+### 24. Admin: deactivate the tenant (all its users lose access at once), then activate it
 PUT {{api}}/tenants/{{tenantId}}/deactivate
 Authorization: Bearer {{adminToken}}
 

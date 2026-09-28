@@ -3,6 +3,7 @@ using CleanArchitecture.Application.Tenants.Get;
 using CleanArchitecture.Application.Users.Bootstrap;
 using CleanArchitecture.Application.Users.ChangeRole;
 using CleanArchitecture.Application.Users.Create;
+using CleanArchitecture.Application.Users.EmailChange;
 using CleanArchitecture.Application.Users.Get;
 using CleanArchitecture.Application.Users.Invitations;
 using CleanArchitecture.Application.Users.Passwords;
@@ -88,6 +89,31 @@ public sealed class UserValidatorsTests
             .ShouldHaveValidationErrorFor(c => c.NewPassword);
         new ForgotPasswordCommandValidator().TestValidate(new ForgotPasswordCommand("not-an-email"))
             .ShouldHaveValidationErrorFor(c => c.Email);
+    }
+
+    [Fact]
+    public void EmailChangeValidators_Should_RejectMissingOrMalformedValues()
+    {
+        TestValidationResult<RequestEmailChangeCommand> request =
+            new RequestEmailChangeCommandValidator().TestValidate(new RequestEmailChangeCommand(string.Empty, "not-an-email"));
+        request.ShouldHaveValidationErrorFor(c => c.CurrentPassword);
+        request.ShouldHaveValidationErrorFor(c => c.NewEmail);
+        new RequestEmailChangeCommandValidator()
+            .TestValidate(new RequestEmailChangeCommand("Password123", $"{new string('a', User.EmailMaxLength)}@example.com"))
+            .ShouldHaveValidationErrorFor(c => c.NewEmail);
+        new ConfirmEmailChangeCommandValidator().TestValidate(new ConfirmEmailChangeCommand(string.Empty))
+            .ShouldHaveValidationErrorFor(c => c.Token);
+        new ConfirmEmailChangeCommandValidator().TestValidate(new ConfirmEmailChangeCommand(new string('t', 129)))
+            .ShouldHaveValidationErrorFor(c => c.Token);
+    }
+
+    [Fact]
+    public void EmailChangeValidators_Should_AcceptValidValues()
+    {
+        new RequestEmailChangeCommandValidator().TestValidate(new RequestEmailChangeCommand("Password123", "new@example.com"))
+            .ShouldNotHaveAnyValidationErrors();
+        new ConfirmEmailChangeCommandValidator().TestValidate(new ConfirmEmailChangeCommand("token"))
+            .ShouldNotHaveAnyValidationErrors();
     }
 
     [Fact]

@@ -5,9 +5,6 @@ public enum UserTokenPurpose
 {
     Invitation = 0,
     PasswordReset = 1,
-    /// <summary>
-    /// Reserved for confirming a new email address (the address travels in <see cref="UserToken.Payload"/>).
-    /// Not implemented yet: no use case issues or redeems it.
-    /// </summary>
+    /// <summary>Confirms a new email address; the address travels in <see cref="UserToken.Payload"/>.</summary>
     EmailChange = 2
 }

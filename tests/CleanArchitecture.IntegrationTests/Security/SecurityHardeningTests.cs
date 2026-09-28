@@ -215,9 +215,19 @@ public sealed class SecurityHardeningTests(IntegrationTestWebAppFactory factory)
             token => token.UserId == account.UserId && token.Purpose == UserTokenPurpose.PasswordReset
                 && token.ConsumedAtUtc == null, CancellationToken));
         count.ShouldBe(1);
-        string latest = await ReadEmailedTokenAsync(account.Email, PasswordResetSubject);
-        using HttpResponseMessage reset = await HttpClient.PostAsJsonAsync(
-            "users/password/reset", new { token = latest, newPassword = "AfterConcurrentRequests123!" }, CancellationToken);
-        reset.StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        // Emails are ordered by when their transaction started, not by when the user lock let them issue
+        // a link, so the usable link may be in any of the emails: exactly one of them must work.
+        IReadOnlyList<string> links = await ReadEmailedTokensAsync(account.Email, PasswordResetSubject);
+        links.Count.ShouldBe(5);
+        int succeeded = 0;
+        foreach (string link in links)
+        {
+            using HttpResponseMessage reset = await HttpClient.PostAsJsonAsync(
+                "users/password/reset", new { token = link, newPassword = "AfterConcurrentRequests123!" }, CancellationToken);
+            succeeded += reset.StatusCode == HttpStatusCode.NoContent ? 1 : 0;
+        }
+
+        succeeded.ShouldBe(1);
     }
 }

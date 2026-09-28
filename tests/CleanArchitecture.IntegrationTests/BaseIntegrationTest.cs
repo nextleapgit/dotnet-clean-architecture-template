@@ -100,7 +100,15 @@ public abstract class BaseIntegrationTest
     /// The token from the newest pending email with this recipient and subject — read from the
     /// outbox, as the user would read it from their mailbox. The worker is off in tests.
     /// </summary>
-    protected async Task<string> ReadEmailedTokenAsync(string recipient, string subject)
+    protected async Task<string> ReadEmailedTokenAsync(string recipient, string subject) =>
+        (await ReadEmailedTokensAsync(recipient, subject))[0];
+
+    /// <summary>
+    /// The tokens of every pending email with this recipient and subject, newest first. "Newest" is
+    /// the start of the transaction that queued the email, so under concurrency it need not be the
+    /// token that was issued last.
+    /// </summary>
+    protected async Task<IReadOnlyList<string>> ReadEmailedTokensAsync(string recipient, string subject)
     {
         EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
 
@@ -109,16 +117,22 @@ public abstract class BaseIntegrationTest
             .OrderByDescending(m => m.CreatedAtUtc)
             .ToListAsync(CancellationToken));
 
-        EmailMessage email = pending
+        List<string> tokens = [];
+
+        foreach (EmailMessage email in pending
             .Select(row => protector.Unprotect(row.Id, row.ExpiresAtUtc, row.Payload!))
             .Where(result => result.IsSuccess)
             .Select(result => result.Value)
-            .First(message => message.Recipient == recipient && message.Subject == subject);
+            .Where(message => message.Recipient == recipient && message.Subject == subject))
+        {
+            Match link = Regex.Match(email.TextBody, "token=([^\\s]+)", RegexOptions.None, TimeSpan.FromSeconds(1));
+            link.Success.ShouldBeTrue();
+            tokens.Add(Uri.UnescapeDataString(link.Groups[1].Value));
+        }
 
-        Match link = Regex.Match(email.TextBody, "token=([^\\s]+)", RegexOptions.None, TimeSpan.FromSeconds(1));
-        link.Success.ShouldBeTrue();
+        tokens.ShouldNotBeEmpty();
 
-        return Uri.UnescapeDataString(link.Groups[1].Value);
+        return tokens;
     }
 
     protected Task<AccessTokens> LoginAsync(string email) => LoginAsync(HttpClient, email, Password, CancellationToken);

@@ -5,8 +5,9 @@ using Microsoft.Extensions.Options;
 namespace CleanArchitecture.Infrastructure.Email;
 
 /// <summary>
-/// Degraded when a sendable email has waited too long (stopped worker, stuck lease, or failing SMTP).
-/// Deliberately not a readiness check: an email backlog must not take the instance out of rotation.
+/// Degraded when a sendable email has waited too long (stopped worker, stuck lease, or failing SMTP),
+/// or when several emails failed or expired recently. Deliberately not a readiness check: an email
+/// backlog must not take the instance out of rotation.
 /// </summary>
 internal sealed class EmailOutboxHealthCheck(EmailOutboxStore store, IOptions<EmailOutboxOptions> options) : IHealthCheck
 {
@@ -16,10 +17,13 @@ internal sealed class EmailOutboxHealthCheck(EmailOutboxStore store, IOptions<Em
     {
         EmailOutboxOptions settings = options.Value;
 
-        long failures = await store.GetRecentDeliveryFailuresAsync(cancellationToken);
-        if (failures > 0)
+        long failures = await store.GetRecentDeliveryFailuresAsync(settings.HealthFailureWindowMinutes, cancellationToken);
+        if (failures >= settings.HealthFailureThreshold)
         {
-            return HealthCheckResult.Degraded("Email delivery failures occurred in the last 24 hours.",
+            return HealthCheckResult.Degraded(
+                string.Create(
+                    CultureInfo.InvariantCulture,
+                    $"{failures} emails failed or expired in the last {settings.HealthFailureWindowMinutes} minutes."),
                 data: new Dictionary<string, object> { ["failedOrExpired"] = failures });
         }
 

@@ -49,7 +49,7 @@ Payloads are protected with ASP.NET Core Data Protection. The protection purpose
 
 ## Health
 
-The `email-outbox` check reports **Degraded** when pending work or an expired lease has waited longer than `HealthBacklogThresholdSeconds`, including expired or exhausted pending messages. It also reports failed or expired deliveries in the last 24 hours. The check remains active when this instance's worker is disabled because the queue is shared. It is part of `/health` but not `/health/ready`: an email backlog must not take an instance out of rotation. Monitor the health status in the response; Degraded may still have HTTP status 200.
+The `email-outbox` check reports **Degraded** when pending work or an expired lease has waited longer than `HealthBacklogThresholdSeconds`, including expired or exhausted pending messages. It also reports Degraded when at least `HealthFailureThreshold` (5) emails failed or expired within the last `HealthFailureWindowMinutes` (60) — a single bad address is not an outage, and the state clears once the window passes. The check remains active when this instance's worker is disabled because the queue is shared. It is part of `/health` but not `/health/ready`: an email backlog must not take an instance out of rotation. Monitor the health status in the response; Degraded may still have HTTP status 200.
 
 ## Delivery semantics
 

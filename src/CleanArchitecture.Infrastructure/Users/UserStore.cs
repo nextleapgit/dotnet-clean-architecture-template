@@ -17,10 +17,7 @@ internal sealed class UserStore(ApplicationDbContext dbContext) : IUserStore
 
     public async Task LockForUpdateAsync(User user, CancellationToken cancellationToken)
     {
-        await dbContext.Database.ExecuteSqlRawAsync(
-            "SELECT 1 FROM " + Schemas.Default + ".users WHERE id = {0} FOR UPDATE",
-            [user.Id],
-            cancellationToken);
+        await UserRowLock.AcquireAsync(dbContext, user.Id, cancellationToken);
 
         await dbContext.Entry(user).ReloadAsync(cancellationToken);
     }

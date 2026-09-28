@@ -7,16 +7,8 @@ namespace CleanArchitecture.Infrastructure.Users;
 
 internal sealed class UserTokenStore(ApplicationDbContext dbContext) : IUserTokenStore
 {
-    public async Task LockUserAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        if (dbContext.Database.CurrentTransaction is null)
-        {
-            throw new InvalidOperationException("User token operations require a transaction.");
-        }
-
-        await dbContext.Database.ExecuteSqlRawAsync(
-            "SELECT 1 FROM " + Schemas.Default + ".users WHERE id = {0} FOR UPDATE", [userId], cancellationToken);
-    }
+    public Task LockUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        UserRowLock.AcquireAsync(dbContext, userId, cancellationToken);
 
     public async Task<UserToken?> FindByHashAsync(string tokenHash, UserTokenPurpose purpose, CancellationToken cancellationToken)
     {

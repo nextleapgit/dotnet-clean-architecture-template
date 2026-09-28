@@ -14,7 +14,7 @@ The September 2026 security review findings R01–R11 are addressed by the chang
 | R08: unexpected package contents | Both packaging and generation use explicit source allowlists; CI inspects package entries before release. |
 | R09: unbounded reads/inputs | Todos supports page/pageSize (default 1/50, maximum page 10000 and size 100). Labels: at most 20, each 1–100 characters. Authentication input lengths are capped; Kestrel bodies are limited to 64 KiB. User/tenant page bounds prevent integer overflow. |
 | R10: stale data across hosts | Todo detail reads go directly to PostgreSQL. No local cache is used for mutable Todo details. |
-| R11: misleading email health | Backlog health includes expired leases and expired/exhausted pending messages, regardless of this host's worker flag; failed/expired deliveries in the last 24 hours degrade health. Readiness remains database-only. |
+| R11: misleading email health | Backlog health includes expired leases and expired/exhausted pending messages, regardless of this host's worker flag; a run of failed/expired deliveries (`HealthFailureThreshold` within `HealthFailureWindowMinutes`, default 5 in 60 minutes) degrades health. Readiness remains database-only. |
 
 ## Configuration required before production
 

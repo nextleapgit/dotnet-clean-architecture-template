@@ -25,8 +25,9 @@
              Exclude="..\src\**\bin\**;..\src\**\obj\**;..\src\**\.containers\**"
              PackagePath="content\src\%(RecursiveDir)%(Filename)%(Extension)" />
     <!-- NuGet treats a PackagePath without an extension as a folder, so an extensionless file such as a
-         Dockerfile takes its folder as the PackagePath; otherwise it lands at Dockerfile/Dockerfile. -->
-    <Content Include="..\src\CleanArchitecture.Api\Dockerfile" PackagePath="content\src\CleanArchitecture.Api\" />
+         Dockerfile takes its folder as the PackagePath; otherwise it lands at Dockerfile/Dockerfile.
+         The trailing separator must be "/": on Linux a trailing "\" is not a separator. -->
+    <Content Include="..\src\CleanArchitecture.Api\Dockerfile" PackagePath="content/src/CleanArchitecture.Api/" />
     <Content Include="..\tests\**\*.cs;..\tests\**\*.csproj"
              Exclude="..\tests\**\bin\**;..\tests\**\obj\**"
              PackagePath="content\tests\%(RecursiveDir)%(Filename)%(Extension)" />

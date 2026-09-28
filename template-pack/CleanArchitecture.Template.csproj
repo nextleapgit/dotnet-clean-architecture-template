@@ -4,7 +4,7 @@
   <PropertyGroup>
     <PackageType>Template</PackageType>
     <PackageId>CleanArchitecture.Template</PackageId>
-    <PackageVersion>2.0.0</PackageVersion>
+    <PackageVersion>3.0.0</PackageVersion>
     <Title>Clean Architecture API template</Title>
     <Authors>AbdulnaserRamadan</Authors>
     <Description>Layered, multi-tenant Clean Architecture Web API for .NET 10.</Description>

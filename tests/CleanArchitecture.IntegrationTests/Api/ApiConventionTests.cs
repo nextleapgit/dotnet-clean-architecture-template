@@ -61,7 +61,8 @@ public sealed class ApiConventionTests(IntegrationTestWebAppFactory factory) : B
                     "api/v1/users/refresh-token",
                     "api/v1/users/invitations/accept",
                     "api/v1/users/password/forgot",
-                    "api/v1/users/password/reset"
+                    "api/v1/users/password/reset",
+                    "api/v1/users/email/confirm"
                 ],
                 ignoreOrder: true);
 

@@ -13,6 +13,8 @@ public static class UserAuditActions
     public const string PasswordChanged = "users.password_changed";
     public const string PasswordResetRequested = "users.password_reset_requested";
     public const string PasswordReset = "users.password_reset";
+    public const string EmailChangeRequested = "users.email_change_requested";
+    public const string EmailChanged = "users.email_changed";
     public const string AdminBootstrapped = "users.admin_bootstrapped";
     public const string LoginSucceeded = "auth.login_succeeded";
     public const string LoginFailed = "auth.login_failed";

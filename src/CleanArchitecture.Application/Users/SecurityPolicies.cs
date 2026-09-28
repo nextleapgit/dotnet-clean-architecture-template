@@ -18,6 +18,8 @@ internal static class UserTokenPolicy
 
     public static readonly TimeSpan PasswordResetLifetime = TimeSpan.FromHours(1);
 
+    public static readonly TimeSpan EmailChangeLifetime = TimeSpan.FromDays(1);
+
     /// <summary>How long a security notice (e.g. "your password was changed") may wait in the outbox.</summary>
     public static readonly TimeSpan NoticeDeliveryWindow = TimeSpan.FromDays(1);
 }

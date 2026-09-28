@@ -37,6 +37,10 @@ public static class UserErrors
         "Users.InvalidCurrentPassword",
         "The current password is incorrect.");
 
+    public static readonly Error EmailUnchanged = Error.Problem(
+        "Users.EmailUnchanged",
+        "The new email address is the current one.");
+
     public static readonly Error InvalidOrExpiredToken = Error.Problem(
         "Users.InvalidOrExpiredToken",
         "The link is invalid, has already been used, or has expired.");

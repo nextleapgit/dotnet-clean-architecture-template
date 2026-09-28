@@ -110,20 +110,9 @@ public abstract class BaseIntegrationTest
     /// </summary>
     protected async Task<IReadOnlyList<string>> ReadEmailedTokensAsync(string recipient, string subject)
     {
-        EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
-
-        List<EmailOutboxMessage> pending = await WithDbContextAsync(db => db.EmailOutboxMessages.AsNoTracking()
-            .Where(m => m.Status == EmailOutboxStatus.Pending)
-            .OrderByDescending(m => m.CreatedAtUtc)
-            .ToListAsync(CancellationToken));
-
         List<string> tokens = [];
 
-        foreach (EmailMessage email in pending
-            .Select(row => protector.Unprotect(row.Id, row.ExpiresAtUtc, row.Payload!))
-            .Where(result => result.IsSuccess)
-            .Select(result => result.Value)
-            .Where(message => message.Recipient == recipient && message.Subject == subject))
+        foreach (EmailMessage email in await ReadEmailsAsync(recipient, subject))
         {
             Match link = Regex.Match(email.TextBody, "token=([^\\s]+)", RegexOptions.None, TimeSpan.FromSeconds(1));
             link.Success.ShouldBeTrue();
@@ -133,6 +122,24 @@ public abstract class BaseIntegrationTest
         tokens.ShouldNotBeEmpty();
 
         return tokens;
+    }
+
+    /// <summary>Every pending email with this recipient and subject, newest first; possibly none.</summary>
+    protected async Task<IReadOnlyList<EmailMessage>> ReadEmailsAsync(string recipient, string subject)
+    {
+        EmailPayloadProtector protector = Factory.Services.GetRequiredService<EmailPayloadProtector>();
+
+        List<EmailOutboxMessage> pending = await WithDbContextAsync(db => db.EmailOutboxMessages.AsNoTracking()
+            .Where(m => m.Status == EmailOutboxStatus.Pending)
+            .OrderByDescending(m => m.CreatedAtUtc)
+            .ToListAsync(CancellationToken));
+
+        return pending
+            .Select(row => protector.Unprotect(row.Id, row.ExpiresAtUtc, row.Payload!))
+            .Where(result => result.IsSuccess)
+            .Select(result => result.Value)
+            .Where(message => message.Recipient == recipient && message.Subject == subject)
+            .ToList();
     }
 
     protected Task<AccessTokens> LoginAsync(string email) => LoginAsync(HttpClient, email, Password, CancellationToken);

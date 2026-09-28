@@ -6,4 +6,6 @@ public interface IClientLinks
     string AcceptInvitation(string token);
 
     string ResetPassword(string token);
+
+    string ConfirmEmailChange(string token);
 }

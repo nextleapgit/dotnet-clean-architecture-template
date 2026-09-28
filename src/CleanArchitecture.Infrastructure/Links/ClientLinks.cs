@@ -9,6 +9,8 @@ internal sealed class ClientLinks(IOptions<ClientAppOptions> options) : IClientL
 
     public string ResetPassword(string token) => Build("reset-password", token);
 
+    public string ConfirmEmailChange(string token) => Build("confirm-email", token);
+
     private string Build(string path, string token) =>
         $"{options.Value.BaseUrl.TrimEnd('/')}/{path}?token={Uri.EscapeDataString(token)}";
 }

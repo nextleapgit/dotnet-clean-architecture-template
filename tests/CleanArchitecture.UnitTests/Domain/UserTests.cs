@@ -21,6 +21,29 @@ public sealed class UserTests
     }
 
     [Fact]
+    public void ChangeEmail_Should_NormalizeTheAddressAndRaiseAnEvent()
+    {
+        var user = User.Create(TenantId.New(), "a@example.com", "A", "B", "hash", Role.Member);
+        user.ClearDomainEvents();
+
+        user.ChangeEmail("  New@Example.com ");
+
+        user.Email.ShouldBe("new@example.com");
+        user.DomainEvents.ShouldHaveSingleItem().ShouldBe(new UserEmailChangedDomainEvent(user.Id));
+    }
+
+    [Fact]
+    public void ChangeEmail_Should_RaiseNothing_WhenTheAddressIsUnchanged()
+    {
+        var user = User.Create(TenantId.New(), "a@example.com", "A", "B", "hash", Role.Member);
+        user.ClearDomainEvents();
+
+        user.ChangeEmail("A@example.com");
+
+        user.DomainEvents.ShouldBeEmpty();
+    }
+
+    [Fact]
     public void Create_Should_HaveNoPassword_WhenInvited()
     {
         var user = User.Create(TenantId.New(), "a@example.com", "A", "B", passwordHash: null, Role.Member);

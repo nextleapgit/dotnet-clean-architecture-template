@@ -61,6 +61,24 @@ public sealed class User : Entity
         Raise(new UserUpdatedDomainEvent(Id));
     }
 
+    /// <summary>
+    /// The address is the sign-in name, so the use case proves control of the new mailbox and its
+    /// uniqueness first; the entity only normalizes and records it.
+    /// </summary>
+    public void ChangeEmail(string email)
+    {
+        string normalized = NormalizeEmail(email);
+
+        if (Email == normalized)
+        {
+            return;
+        }
+
+        Email = normalized;
+
+        Raise(new UserEmailChangedDomainEvent(Id));
+    }
+
     /// <summary>Who may assign which role is decided by the use case; the entity only records it.</summary>
     public void ChangeRole(Role role)
     {

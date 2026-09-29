@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text.Json;
 using CleanArchitecture.Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -73,6 +74,28 @@ public sealed class ApiConventionTests(IntegrationTestWebAppFactory factory) : B
 
         document.ShouldContain("\"bearer\"");
         document.ShouldContain("/api/v1/todos");
+    }
+
+    // Every endpoint nests its contract as Request; with the default schema ids they would all share one
+    // schema, and clients generated from the document would send the wrong fields.
+    [Theory]
+    [InlineData("/api/v1/users", "post", new[] { "email", "firstName", "lastName", "role" })]
+    [InlineData("/api/v1/users/login", "post", new[] { "email", "password" })]
+    [InlineData("/api/v1/users/logout", "post", new[] { "refreshToken" })]
+    [InlineData("/api/v1/todos", "post", new[] { "description", "dueDate", "labels", "priority" })]
+    [InlineData("/api/v1/todos/{id}", "put", new[] { "description" })]
+    public async Task OpenApiDocument_Should_DescribeEachRequestBodyWithItsOwnFields(string path, string method, string[] expectedFields)
+    {
+        using var document = JsonDocument.Parse(await HttpClient.GetStringAsync("/openapi/v1.json", CancellationToken));
+        JsonElement root = document.RootElement;
+
+        string reference = root.GetProperty("paths").GetProperty(path).GetProperty(method)
+            .GetProperty("requestBody").GetProperty("content").GetProperty("application/json")
+            .GetProperty("schema").GetProperty("$ref").GetString()!;
+        JsonElement schema = root.GetProperty("components").GetProperty("schemas").GetProperty(reference.Split('/')[^1]);
+
+        schema.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .ShouldBe(expectedFields, ignoreOrder: true);
     }
 
     [Fact]

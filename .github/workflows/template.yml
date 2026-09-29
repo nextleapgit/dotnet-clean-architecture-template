@@ -43,6 +43,7 @@ jobs:
           test ! -e ../template-check/nextleapoperations
           test ! -e ../template-check/artifacts
           test -f ../template-check/src/Template.Check.Api/Dockerfile
+          test ! -e ../template-check/scripts/test-template-package.ps1
 
       # Builds the image the way docker-compose.yml does, so a broken Dockerfile path or build fails here.
       - name: Build the generated project's container image

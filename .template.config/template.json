@@ -85,6 +85,7 @@
             ".template.config/**",
             "template-pack/**",
             "scripts/init-project.ps1",
+            "scripts/test-template-package.ps1",
             ".github/workflows/release.yml",
             "TestResults/**",
             "bin/**",

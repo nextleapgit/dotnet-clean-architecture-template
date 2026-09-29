@@ -7,7 +7,7 @@ try {
     if ($files.Count -lt 100) { throw 'The template is missing its source files.' }
     $rootFiles = @('CleanArchitecture.slnx','Directory.Build.props','Directory.Packages.props','global.json','dotnet-tools.json','launchSettings.json','docker-compose.yml','docker-compose.override.yml','docker-compose.dcproj','.editorconfig','.gitattributes','.gitignore','.dockerignore','README.md','CLAUDE.md')
     foreach ($file in $files) {
-        if ($file -match '(^|/)(bin|obj|artifacts|nextleapoperations|\.containers|\.git|TestResults)(/|$)' -or $file -match '\.(pfx|p12|pem|nupkg)$|(^|/)\.env') {
+        if ($file -match '(^|/)(bin|obj|artifacts|\.containers|\.git|TestResults)(/|$)' -or $file -match '\.(pfx|p12|pem|nupkg)$|(^|/)\.env') {
             throw "Forbidden package entry: $file"
         }
         if ($file -notmatch '^(src|tests|docs|scripts|\.claude|\.github|\.template.config)/' -and $file -notin $rootFiles) {

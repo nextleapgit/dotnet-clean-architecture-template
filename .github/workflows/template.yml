@@ -40,7 +40,6 @@ jobs:
 
       - name: Verify generated files
         run: |
-          test ! -e ../template-check/nextleapoperations
           test ! -e ../template-check/artifacts
           test -f ../template-check/src/Template.Check.Api/Dockerfile
           test ! -e ../template-check/scripts/test-template-package.ps1

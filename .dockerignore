@@ -20,7 +20,6 @@
 **/npm-debug.log
 **/obj
 **/.containers
-nextleapoperations
 artifacts
 **/secrets.dev.yaml
 **/values.dev.yaml

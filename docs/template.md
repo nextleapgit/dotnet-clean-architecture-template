@@ -3,7 +3,7 @@
 ## Start a project from GitHub
 
 1. On the template repository, click **Use this template** → create your repository.
-2. Clone it and run `./scripts/init-project.ps1 -Name Acme.Orders`. The script runs the same template engine in place: it renames everything, generates fresh ids, and removes the template-only files (`.template.config`, `template-pack`, the release and template workflows, and the script itself).
+2. Clone it and run `./scripts/init-project.ps1 -Name Acme.Orders`. The script runs the same template engine in place: it renames everything, generates fresh ids, and removes the template-only files (`.template.config`, `template-pack`, the release and template workflows, the package check script, and the script itself).
 3. `dotnet build Acme.Orders.slnx`, `dotnet test --solution Acme.Orders.slnx`, commit, push.
 
 ## Install as a `dotnet new` template
